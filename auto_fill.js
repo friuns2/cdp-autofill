@@ -88,6 +88,55 @@ allDropdowns.forEach((dropdown) => {
             }
         }
     }
+
+    // Select role as "Data Engineer"
+    if (labelText.includes('role') && labelText.includes('applying') ||
+        labelText.includes('position') || labelText.includes('job title')) {
+
+        if (dropdown.getAttribute('role') === 'combobox' || dropdown.hasAttribute('aria-expanded')) {
+            // This is a combobox - try to find and click the data engineer option
+            setTimeout(() => {
+                dropdown.click(); // Open the dropdown
+                setTimeout(() => {
+                    // Look for data engineer option in the dropdown menu
+                    const roleOptions = document.querySelectorAll('[role="option"], [data-testid*="option"]');
+                    for (let option of roleOptions) {
+                        const optionText = option.textContent?.toLowerCase() || '';
+                        if (optionText.includes('data engineer') || optionText.includes('data') && optionText.includes('engineer')) {
+                            option.click();
+                            filled.push('Role you are applying for: Data Engineer');
+                            return;
+                        }
+                    }
+                    // Fallback: try to set value directly
+                    if (dropdown.tagName === 'SELECT') {
+                        const dataEngineerOption = Array.from(dropdown.options).find(option =>
+                            option.text.toLowerCase().includes('data engineer') ||
+                            (option.text.toLowerCase().includes('data') && option.text.toLowerCase().includes('engineer'))
+                        );
+                        if (dataEngineerOption) {
+                            dropdown.value = dataEngineerOption.value;
+                            dropdown.dispatchEvent(new Event('change', { bubbles: true }));
+                            filled.push('Role you are applying for: Data Engineer');
+                        }
+                    }
+                }, 100);
+            }, 500);
+        } else if (dropdown.tagName === 'SELECT') {
+            // Regular select element
+            const dataEngineerOption = Array.from(dropdown.options).find(option =>
+                option.text.toLowerCase().includes('data engineer') ||
+                (option.text.toLowerCase().includes('data') && option.text.toLowerCase().includes('engineer'))
+            );
+
+            if (dataEngineerOption) {
+                dropdown.value = dataEngineerOption.value;
+                dropdown.dispatchEvent(new Event('change', { bubbles: true }));
+                dropdown.dispatchEvent(new Event('input', { bubbles: true }));
+                filled.push('Role you are applying for: Data Engineer');
+            }
+        }
+    }
 });
 
 // Handle text inputs and textareas
