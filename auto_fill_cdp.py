@@ -102,6 +102,23 @@ class CDPAutoFill:
             print(f"❌ Error reading JavaScript file: {e}")
             return []
 
+        # Try to read resume data
+        resume_data = None
+        try:
+            with open("resume.txt", "r", encoding="utf-8") as f:
+                resume_data = f.read()
+            print("📄 Loaded resume.txt")
+        except FileNotFoundError:
+            print("⚠️  resume.txt not found, script will use default resume data")
+        except Exception as e:
+            print(f"⚠️  Error reading resume.txt: {e}")
+
+        # Inject resume data into the script if available
+        if resume_data:
+            # Escape the resume data for JavaScript
+            resume_json = json.dumps(resume_data)
+            script = f"window.RESUME_DATA = {resume_json};\n" + script
+
         # Wait a bit for dynamic content to load
         print("📝 Waiting for dynamic content to load...")
         await asyncio.sleep(2)
@@ -111,7 +128,8 @@ class CDPAutoFill:
         try:
             result = await self._send_command("Runtime.evaluate", {
                 "expression": script,
-                "returnByValue": True
+                "returnByValue": True,
+                "awaitPromise": True
             })
 
             if 'result' in result and 'value' in result['result']:

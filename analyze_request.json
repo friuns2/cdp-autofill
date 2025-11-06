@@ -1,0 +1,10 @@
+{
+  "model": "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Please analyze this JavaScript auto-fill script for job applications. What does it do and how does it work?\n\n$(cat auto_fill.js)"
+    }
+  ],
+  "max_tokens": 1000
+}
