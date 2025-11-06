@@ -1,5 +1,5 @@
-// Auto-fill script for WasteHero Job Application form
-// Uses ModelScope API to extract data from resume and fill form fields
+// Generic Auto-fill script for any Job Application form
+// Uses ModelScope API to intelligently extract data from resume and fill form fields
 
 // ModelScope API configuration
 const MODEL_SCOPE_CONFIG = {
@@ -8,11 +8,134 @@ const MODEL_SCOPE_CONFIG = {
     model: "Qwen/Qwen3-Coder-480B-A35B-Instruct"
 };
 
-// Resume data - can be set externally or fetched
-let resumeData = window.RESUME_DATA || null;
+// Configuration - can be set externally via window.AUTO_FILL_CONFIG
+const AUTO_FILL_CONFIG = window.AUTO_FILL_CONFIG || {
+    companyName: null,  // Will be auto-detected or use default
+    jobTitle: null,     // Will be auto-detected or use default
+    resumeData: null,   // Resume text
+    preferredWorkSetup: "remote",  // Options: "remote", "hybrid", "onsite"
+    customMappings: {}  // Custom field mappings: { "fieldLabel": "value" }
+};
 
-// Function to call ModelScope API
-async function getFormDataFromResume(resumeText, companyName = "WasteHero", jobTitle = "Data Engineer") {
+// Resume data - can be set externally or fetched
+let resumeData = AUTO_FILL_CONFIG.resumeData || window.RESUME_DATA || null;
+
+// Function to analyze form and detect all fillable fields
+function analyzeForm() {
+    const formFields = [];
+    
+    // Detect all input fields
+    const inputs = document.querySelectorAll('input[type="text"], input[type="tel"], input[type="email"], input[type="url"], input[type="date"], textarea');
+    inputs.forEach(input => {
+        const fieldInfo = getFieldInfo(input);
+        if (fieldInfo) {
+            formFields.push(fieldInfo);
+        }
+    });
+    
+    // Detect contenteditable fields
+    const contentEditables = document.querySelectorAll('[contenteditable="plaintext-only"], [contenteditable="true"], [role="textbox"]');
+    contentEditables.forEach(editable => {
+        const fieldInfo = getFieldInfo(editable);
+        if (fieldInfo) {
+            formFields.push(fieldInfo);
+        }
+    });
+    
+    // Detect select dropdowns
+    const selects = document.querySelectorAll('select');
+    selects.forEach(select => {
+        const fieldInfo = getFieldInfo(select);
+        if (fieldInfo) {
+            fieldInfo.options = Array.from(select.options).map(opt => ({
+                value: opt.value,
+                text: opt.text
+            }));
+            formFields.push(fieldInfo);
+        }
+    });
+    
+    // Detect combobox/custom dropdowns
+    const comboboxes = document.querySelectorAll('[role="combobox"], [data-testid*="combobox"]');
+    comboboxes.forEach(combo => {
+        const fieldInfo = getFieldInfo(combo);
+        if (fieldInfo) {
+            formFields.push(fieldInfo);
+        }
+    });
+    
+    return formFields;
+}
+
+// Helper function to extract field information
+function getFieldInfo(element) {
+    let labelText = '';
+    let placeholder = element.placeholder || '';
+    let ariaLabel = element.getAttribute('aria-label') || '';
+    let ariaLabelledBy = element.getAttribute('aria-labelledby');
+    
+    // Try to find label by aria-labelledby
+    if (ariaLabelledBy) {
+        const labelElement = document.getElementById(ariaLabelledBy);
+        if (labelElement) {
+            labelText = labelElement.textContent?.trim() || '';
+        }
+    }
+    
+    // Walk up the DOM to find labels
+    if (!labelText) {
+        let parent = element;
+        for (let i = 0; i < 10; i++) {
+            parent = parent.parentElement;
+            if (!parent) break;
+            
+            const labels = parent.querySelectorAll('p, span, div, label, [data-testid*="label"]');
+            for (let label of labels) {
+                const text = label.textContent?.trim() || '';
+                if (text && text.length > 2 && !text.includes('*') && !text.includes('Please include')) {
+                    labelText = text;
+                    break;
+                }
+            }
+            if (labelText) break;
+        }
+    }
+    
+    // Use aria-label as fallback
+    if (!labelText && ariaLabel) {
+        labelText = ariaLabel;
+    }
+    
+    return {
+        element: element,
+        label: labelText,
+        placeholder: placeholder,
+        type: element.tagName.toLowerCase(),
+        inputType: element.type || element.getAttribute('role') || '',
+        name: element.name || '',
+        id: element.id || ''
+    };
+}
+
+// Function to call ModelScope API with dynamic form fields
+async function getFormDataFromResume(resumeText, formFields, companyName = null, jobTitle = null) {
+    // Auto-detect company name and job title from page if not provided
+    if (!companyName) {
+        companyName = detectCompanyName() || "this company";
+    }
+    if (!jobTitle) {
+        jobTitle = detectJobTitle() || "this position";
+    }
+    
+    // Build field descriptions for the AI
+    const fieldDescriptions = formFields.map((field, index) => {
+        let desc = `Field ${index + 1}: ${field.label || field.placeholder || field.name || 'Unknown field'}`;
+        if (field.options) {
+            desc += ` (Options: ${field.options.map(o => o.text).join(', ')})`;
+        }
+        return desc;
+    }).join('\n');
+    
     const prompt = `You are extracting information from a resume/LinkedIn profile to fill out a job application form.
 
 RESUME/LINKEDIN PROFILE:
@@ -21,24 +144,30 @@ ${resumeText}
 COMPANY: ${companyName}
 JOB TITLE: ${jobTitle}
 
-Please extract the following information and return ONLY a valid JSON object with these exact keys:
-{
-  "name": "Full name",
-  "phone": "Phone number with country code",
-  "email": "Email address",
-  "linkedin": "LinkedIn profile URL",
-  "country": "Country name",
-  "city": "City name",
-  "salary": "Expected salary (e.g., $8,000 USD)",
-  "startDate": "Available start date in MM/DD/YYYY format",
-  "motivation": "A compelling 2-3 sentence motivation letter explaining why you want to work with ${companyName} as a ${jobTitle}, highlighting relevant experience from the resume"
-}
+FORM FIELDS DETECTED:
+${fieldDescriptions}
 
-Important:
-- Extract real information from the resume when available
-- For missing information, use reasonable defaults based on the profile
-- The motivation should be personalized and reference specific experience from the resume
-- Return ONLY the JSON object, no additional text or markdown formatting`;
+Please analyze the form fields and extract relevant information from the resume. Return ONLY a valid JSON object where:
+- Keys are descriptive field identifiers (e.g., "fullName", "email", "phone", "linkedin", "city", "country", "salary", "startDate", "motivation", "coverLetter", "portfolio", "github", "website", "yearsOfExperience", "skills", "education", "currentCompany", "currentTitle", "workAuthorization", "preferredWorkSetup", etc.)
+- Values are the extracted data from the resume
+- For motivation/cover letter fields, write a compelling 2-3 sentence personalized message explaining why the candidate wants to work with ${companyName} as ${jobTitle}, highlighting relevant experience
+- For dropdown fields with options, return the most appropriate option value
+- Use reasonable defaults for missing information based on the profile
+- Return ONLY the JSON object, no additional text or markdown formatting
+
+Example format:
+{
+  "fullName": "John Doe",
+  "email": "john@example.com",
+  "phone": "+1 234 567 8900",
+  "linkedin": "https://linkedin.com/in/johndoe",
+  "city": "San Francisco",
+  "country": "United States",
+  "motivation": "Personalized motivation text...",
+  "skills": "JavaScript, Python, React",
+  "yearsOfExperience": "5",
+  "currentTitle": "Senior Developer"
+}`;
 
     try {
         const response = await fetch(`${MODEL_SCOPE_CONFIG.baseUrl}/chat/completions`, {
@@ -79,26 +208,143 @@ Important:
         return formData;
     } catch (error) {
         console.error('Error calling ModelScope API:', error);
-        // Fallback to default data
-        return {
-            name: "Igor Levochkin",
-            phone: "+358 50 123 4567",
-            email: "igor@igor.ink",
-            linkedin: "https://www.linkedin.com/in/igor-levochkin-a8733a14",
-            country: "Finland",
-            city: "Tampere",
-            salary: "$8,000 USD",
-            startDate: "02/01/2025",
-            motivation: "I am passionate about sustainable waste management and environmental technology. WasteHero's mission to help cities optimize operations and create greener communities resonates deeply with me. I have experience in software development and would love to contribute to building technology that makes a real difference in environmental sustainability."
-        };
+        throw error;
     }
 }
 
+// Helper function to detect company name from page
+function detectCompanyName() {
+    // Try common selectors for company name
+    const selectors = [
+        'meta[property="og:site_name"]',
+        'meta[name="application-name"]',
+        '[class*="company-name"]',
+        '[class*="employer"]',
+        'h1', 'h2'
+    ];
+    
+    for (let selector of selectors) {
+        const element = document.querySelector(selector);
+        if (element) {
+            const content = element.getAttribute('content') || element.textContent;
+            if (content && content.trim().length > 0 && content.trim().length < 50) {
+                return content.trim();
+            }
+        }
+    }
+    
+    // Try to extract from page title
+    const title = document.title;
+    if (title) {
+        const parts = title.split(/[-|–]/);
+        if (parts.length > 1) {
+            return parts[parts.length - 1].trim();
+        }
+    }
+    
+    return null;
+}
+
+// Helper function to detect job title from page
+function detectJobTitle() {
+    // Try common selectors for job title
+    const selectors = [
+        '[class*="job-title"]',
+        '[class*="position"]',
+        '[class*="role"]',
+        'h1', 'h2'
+    ];
+    
+    for (let selector of selectors) {
+        const element = document.querySelector(selector);
+        if (element) {
+            const text = element.textContent?.trim();
+            if (text && text.length > 0 && text.length < 100 && 
+                (text.toLowerCase().includes('engineer') || 
+                 text.toLowerCase().includes('developer') ||
+                 text.toLowerCase().includes('manager') ||
+                 text.toLowerCase().includes('designer') ||
+                 text.toLowerCase().includes('analyst'))) {
+                return text;
+            }
+        }
+    }
+    
+    return null;
+}
+
 // Initialize form data (will be populated after API call)
-let mockData = null;
+let extractedData = null;
+
+// Intelligent field matching function
+function matchFieldToData(fieldInfo, data) {
+    const label = (fieldInfo.label || '').toLowerCase();
+    const placeholder = (fieldInfo.placeholder || '').toLowerCase();
+    const combined = label + ' ' + placeholder;
+    
+    // Check custom mappings first
+    if (AUTO_FILL_CONFIG.customMappings) {
+        for (let [key, value] of Object.entries(AUTO_FILL_CONFIG.customMappings)) {
+            if (combined.includes(key.toLowerCase())) {
+                return value;
+            }
+        }
+    }
+    
+    // Intelligent matching based on field labels/placeholders
+    const patterns = {
+        fullName: ['full name', 'your name', 'name', 'first and last'],
+        firstName: ['first name', 'given name'],
+        lastName: ['last name', 'surname', 'family name'],
+        email: ['email', 'e-mail'],
+        phone: ['phone', 'mobile', 'telephone', 'contact number', 'country code'],
+        linkedin: ['linkedin', 'linked in'],
+        github: ['github', 'git hub'],
+        portfolio: ['portfolio', 'website', 'personal site'],
+        city: ['city', 'town'],
+        country: ['country', 'nation'],
+        address: ['address', 'street'],
+        zipCode: ['zip', 'postal code', 'postcode'],
+        salary: ['salary', 'compensation', 'expected pay', 'salary expectation'],
+        startDate: ['start date', 'available', 'availability', 'when can you start', 'mm/dd/yyyy'],
+        motivation: ['motivation', 'why do you want', 'why are you interested', 'cover letter', 'tell us why'],
+        experience: ['years of experience', 'experience', 'work experience'],
+        education: ['education', 'degree', 'university', 'school'],
+        skills: ['skills', 'technologies', 'expertise'],
+        currentCompany: ['current company', 'current employer', 'where do you work'],
+        currentTitle: ['current title', 'current position', 'current role'],
+        referral: ['how did you hear', 'referral', 'how did you find'],
+        workAuthorization: ['work authorization', 'authorized to work', 'visa', 'work permit'],
+        preferredWorkSetup: ['work setup', 'work arrangement', 'remote', 'hybrid', 'office']
+    };
+    
+    // Try to match patterns
+    for (let [key, keywords] of Object.entries(patterns)) {
+        for (let keyword of keywords) {
+            if (combined.includes(keyword)) {
+                // Return the matched data if it exists
+                if (data[key]) {
+                    return data[key];
+                }
+                // Try alternative keys (e.g., name for fullName)
+                if (key === 'fullName' && data.name) return data.name;
+                if (key === 'motivation' && data.coverLetter) return data.coverLetter;
+                if (key === 'portfolio' && data.website) return data.website;
+            }
+        }
+    }
+    
+    return null;
+}
 
 // Main async function to fill the form
 async function fillForm() {
+    console.log('🔍 Analyzing form structure...');
+    
+    // Analyze the form to detect all fields
+    const formFields = analyzeForm();
+    console.log(`📋 Detected ${formFields.length} form fields`);
+    
     // Get resume data - try multiple sources
     let resumeText = resumeData;
     
@@ -114,285 +360,111 @@ async function fillForm() {
         }
     }
     
-    // If still no resume data, use a default (extracted from resume.txt)
+    // If still no resume data, throw error
     if (!resumeText) {
-        resumeText = `Igor Levochkin
-Software developer with 12 years of experience. Expertise in building cross-platform applications and servers. 
-Proven expertise in the Mobile Gaming industry, including a multiplayer games which handled over 10M users accounts.
-Location: Tampere, Pirkanmaa, Finland
-Website: https://igor.ink
-LinkedIn: https://www.linkedin.com/in/igor-levochkin-a8733a14
-Skills: C#, JavaScript, Node.js, Unity3D, puppeteer
-
-Experience:
-- Owner, Game developer at Brutal Strike (Jan 2018 - Present)
-  Created a cross-platform Game that has Over 1M downloads with over 1000 CCU.
-  Developed a account server, with asp.net, C# and MongoDB, that handled over 2M user accounts.
-  
-- Software Developer at Delta Cygni Labs (Jan 2016 - Jun 2025)
-  Working on augmented reality app PointrIT, that was used in industry such as Kone and Valmet
-  Patent contributor "METHODS AND SYSTEMS FOR ALIGNING MANIPULATIONS IN TIME AND SPACE"
-  
-- Lead Programmer at Critical Force Entertainment Ltd (Dec 2011 - Apr 2014)
-  Created game using unity3d engine, wrote account server on php and mysql
-  Game had about 50 million downloads`;
+        throw new Error('No resume data available. Please set window.RESUME_DATA or window.AUTO_FILL_CONFIG.resumeData');
     }
     
-    console.log('📝 Fetching form data from ModelScope API...');
+    console.log('📝 Extracting data from resume using AI...');
     
-    // Get form data from API
-    mockData = await getFormDataFromResume(resumeText, "WasteHero", "Data Engineer");
+    // Get form data from API with detected fields
+    extractedData = await getFormDataFromResume(
+        resumeText, 
+        formFields,
+        AUTO_FILL_CONFIG.companyName,
+        AUTO_FILL_CONFIG.jobTitle
+    );
     
-    console.log('✅ Received form data:', mockData);
+    console.log('✅ Extracted data:', extractedData);
     
-    const inputs = document.querySelectorAll('input[type="text"], input[type="tel"], textarea');
-    const selects = document.querySelectorAll('select');
-    const comboboxes = document.querySelectorAll('[role="combobox"], [data-testid*="combobox"]');
     const filled = [];
-
-    // Handle dropdown selections sequentially - Work Setup first, then Role
-    const allDropdowns = [...selects, ...comboboxes];
-
-    // Function to find label for a dropdown
-    function findDropdownLabel(dropdown) {
-        let labelText = '';
-        let element = dropdown;
-
-        // Walk up the DOM to find labels
-        for (let i = 0; i < 10; i++) {
-            element = element.parentElement;
-            if (!element) break;
-
-            const labels = element.querySelectorAll('p, span, div, label, [data-testid*="label"]');
-            for (let label of labels) {
-                const text = label.textContent?.trim() || label.getAttribute('aria-label') || '';
-                if (text && text.length > 3 && !text.includes('*')) {
-                    labelText = text.toLowerCase();
-                    break;
-                }
+    
+    // Fill all detected form fields
+    console.log('📝 Filling form fields...');
+    
+    for (let fieldInfo of formFields) {
+        try {
+            const value = matchFieldToData(fieldInfo, extractedData);
+            
+            if (!value) {
+                console.log(`⚠️ No data found for field: ${fieldInfo.label || fieldInfo.placeholder}`);
+                continue;
             }
-            if (labelText) break;
-        }
-        return labelText;
-    }
-
-    // Function to select work setup option
-    function selectWorkSetup(dropdown) {
-        if (dropdown.getAttribute('role') === 'combobox' || dropdown.hasAttribute('aria-expanded')) {
-            // This is a combobox - try to find and click the remote option
-            setTimeout(() => {
-                dropdown.click(); // Open the dropdown
+            
+            const element = fieldInfo.element;
+            
+            // Handle different field types
+            if (element.tagName === 'SELECT') {
+                // Handle select dropdowns
+                const matchingOption = Array.from(element.options).find(option => {
+                    const optionText = option.text.toLowerCase();
+                    const optionValue = option.value.toLowerCase();
+                    const searchValue = value.toString().toLowerCase();
+                    return optionText.includes(searchValue) || 
+                           searchValue.includes(optionText) ||
+                           optionValue.includes(searchValue);
+                });
+                
+                if (matchingOption) {
+                    element.value = matchingOption.value;
+                    element.dispatchEvent(new Event('change', { bubbles: true }));
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                    filled.push(`${fieldInfo.label}: ${matchingOption.text}`);
+                    console.log(`✅ Filled select: ${fieldInfo.label} = ${matchingOption.text}`);
+                }
+            } else if (element.getAttribute('role') === 'combobox' || element.hasAttribute('aria-expanded')) {
+                // Handle custom combobox dropdowns
                 setTimeout(() => {
-                    // Look for remote option in the dropdown menu
-                    const remoteOptions = document.querySelectorAll('[role="option"], [data-testid*="option"]');
-                    for (let option of remoteOptions) {
-                        const optionText = option.textContent?.toLowerCase() || '';
-                        if (optionText.includes('remote')) {
-                            option.click();
-                            filled.push('Preferred Work Setup: Remote work');
-                            // After work setup is done, handle role selection
-                            setTimeout(() => selectRole(), 1000);
-                            return;
+                    element.click(); // Open the dropdown
+                    setTimeout(() => {
+                        const options = document.querySelectorAll('[role="option"], [data-testid*="option"]');
+                        for (let option of options) {
+                            const optionText = option.textContent?.toLowerCase() || '';
+                            const searchValue = value.toString().toLowerCase();
+                            if (optionText.includes(searchValue) || searchValue.includes(optionText)) {
+                                option.click();
+                                filled.push(`${fieldInfo.label}: ${option.textContent}`);
+                                console.log(`✅ Filled combobox: ${fieldInfo.label} = ${option.textContent}`);
+                                break;
+                            }
                         }
-                    }
-                    // Fallback: try to set value directly
-                    if (dropdown.tagName === 'SELECT') {
-                        const remoteOption = Array.from(dropdown.options).find(option =>
-                            option.text.toLowerCase().includes('remote') ||
-                            option.value.toLowerCase().includes('remote')
-                        );
-                        if (remoteOption) {
-                            dropdown.value = remoteOption.value;
-                            dropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                            filled.push('Preferred Work Setup: Remote work');
-                            // After work setup is done, handle role selection
-                            setTimeout(() => selectRole(), 1000);
-                        }
-                    }
-                }, 200);
-            }, 300);
-        } else if (dropdown.tagName === 'SELECT') {
-            // Regular select element
-            const remoteOption = Array.from(dropdown.options).find(option =>
-                option.text.toLowerCase().includes('remote') ||
-                option.value.toLowerCase().includes('remote')
-            );
-
-            if (remoteOption) {
-                dropdown.value = remoteOption.value;
-                dropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                dropdown.dispatchEvent(new Event('input', { bubbles: true }));
-                filled.push('Preferred Work Setup: Remote work');
-                // After work setup is done, handle role selection
-                setTimeout(() => selectRole(), 1000);
-            }
-        }
-    }
-
-    // Function to select role option
-    function selectRole() {
-        const roleDropdown = allDropdowns.find(dropdown => {
-            const labelText = findDropdownLabel(dropdown);
-            return labelText.includes('role') && labelText.includes('applying') ||
-                   labelText.includes('position') || labelText.includes('job title');
-        });
-
-        if (!roleDropdown) return;
-
-        if (roleDropdown.getAttribute('role') === 'combobox' || roleDropdown.hasAttribute('aria-expanded')) {
-            // This is a combobox - try to find and click the data engineer option
-            setTimeout(() => {
-                roleDropdown.click(); // Open the dropdown
-                setTimeout(() => {
-                    // Look for data engineer option in the dropdown menu
-                    const roleOptions = document.querySelectorAll('[role="option"], [data-testid*="option"]');
-                    for (let option of roleOptions) {
-                        const optionText = option.textContent?.toLowerCase() || '';
-                        if (optionText.includes('data engineer') || optionText.includes('data') && optionText.includes('engineer')) {
-                            option.click();
-                            filled.push('Role you are applying for: Data Engineer');
-                            return;
-                        }
-                    }
-                    // Fallback: try to set value directly
-                    if (roleDropdown.tagName === 'SELECT') {
-                        const dataEngineerOption = Array.from(roleDropdown.options).find(option =>
-                            option.text.toLowerCase().includes('data engineer') ||
-                            (option.text.toLowerCase().includes('data') && option.text.toLowerCase().includes('engineer'))
-                        );
-                        if (dataEngineerOption) {
-                            roleDropdown.value = dataEngineerOption.value;
-                            roleDropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                            filled.push('Role you are applying for: Data Engineer');
-                        }
-                    }
-                }, 200);
-            }, 300);
-        } else if (roleDropdown.tagName === 'SELECT') {
-            // Regular select element
-            const dataEngineerOption = Array.from(roleDropdown.options).find(option =>
-                option.text.toLowerCase().includes('data engineer') ||
-                (option.text.toLowerCase().includes('data') && option.text.toLowerCase().includes('engineer'))
-            );
-
-            if (dataEngineerOption) {
-                roleDropdown.value = dataEngineerOption.value;
-                roleDropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                roleDropdown.dispatchEvent(new Event('input', { bubbles: true }));
-                filled.push('Role you are applying for: Data Engineer');
-            }
-        }
-    }
-
-    // Start with work setup selection
-    const workSetupDropdown = allDropdowns.find(dropdown => {
-        const labelText = findDropdownLabel(dropdown);
-        return labelText.includes('prefered work setup') || labelText.includes('work setup') || labelText.includes('work arrangement');
-    });
-
-    if (workSetupDropdown) {
-        selectWorkSetup(workSetupDropdown);
-    } else {
-        // If no work setup dropdown found, go directly to role selection
-        setTimeout(() => selectRole(), 500);
-    }
-
-    // Handle contenteditable elements (like the motivation field)
-    const contentEditables = document.querySelectorAll('[contenteditable="plaintext-only"], [contenteditable="true"], [role="textbox"]');
-    contentEditables.forEach((editable) => {
-        let labelText = '';
-        let element = editable;
-
-        // Walk up the DOM to find labels
-        for (let i = 0; i < 10; i++) {
-            element = element.parentElement;
-            if (!element) break;
-
-            const labels = element.querySelectorAll('p, span, div, label');
-            for (let label of labels) {
-                const text = label.textContent?.trim() || '';
-                if (text && text.length > 3 && !text.includes('*') && !text.includes('Please include')) {
-                    labelText = text.toLowerCase();
-                    break;
+                    }, 200);
+                }, 100);
+            } else if (element.getAttribute('contenteditable')) {
+                // Handle contenteditable fields
+                element.textContent = value;
+                element.dispatchEvent(new Event('input', { bubbles: true }));
+                element.dispatchEvent(new Event('change', { bubbles: true }));
+                filled.push(`${fieldInfo.label}: ${value.substring(0, 50)}...`);
+                console.log(`✅ Filled contenteditable: ${fieldInfo.label}`);
+            } else if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                // Handle regular input and textarea fields
+                element.focus();
+                
+                // Try modern approach first
+                element.value = value;
+                element.dispatchEvent(new Event('input', { bubbles: true }));
+                element.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                // Fallback to execCommand for stubborn fields
+                if (element.value !== value) {
+                    document.execCommand('selectAll');
+                    document.execCommand('delete');
+                    document.execCommand('insertText', false, value);
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                    element.dispatchEvent(new Event('change', { bubbles: true }));
                 }
+                
+                filled.push(`${fieldInfo.label || fieldInfo.placeholder}: ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
+                console.log(`✅ Filled input: ${fieldInfo.label || fieldInfo.placeholder} = ${value.substring(0, 30)}...`);
             }
-            if (labelText) break;
+        } catch (error) {
+            console.error(`❌ Error filling field ${fieldInfo.label}:`, error);
         }
-
-        // Fill motivation field using aria-labelledby (working method)
-        const ariaLabelId = editable.getAttribute('aria-labelledby');
-        const isMotivationField = ariaLabelId && (() => {
-            const labelElement = document.getElementById(ariaLabelId) || document.querySelector(`[id="${ariaLabelId}"]`);
-            return labelElement && labelElement.textContent &&
-                   (labelElement.textContent.includes('Why do you want') || labelElement.textContent.includes('work with us'));
-        })();
-
-        if (isMotivationField) {
-            // For contenteditable elements, set textContent directly
-            editable.textContent = mockData.motivation;
-            editable.dispatchEvent(new Event('input', { bubbles: true }));
-            editable.dispatchEvent(new Event('change', { bubbles: true }));
-            filled.push('Why do you want to work with us?: ' + mockData.motivation.substring(0, 30) + '...');
-        }
-    });
-
-    // Handle text inputs and textareas (excluding contenteditable)
-    inputs.forEach((input) => {
-        // Skip contenteditable elements as they're handled separately
-        if (input.getAttribute('contenteditable')) return;
-
-        let labelText = '';
-        let element = input;
-
-        // Walk up the DOM to find labels
-        for (let i = 0; i < 10; i++) {
-            element = element.parentElement;
-            if (!element) break;
-
-            const labels = element.querySelectorAll('p, span, div, label');
-            for (let label of labels) {
-                const text = label.textContent?.trim() || '';
-                if (text && text.length > 3 && !text.includes('*') && !text.includes('Please include')) {
-                    labelText = text.toLowerCase();
-                    break;
-                }
-            }
-            if (labelText) break;
-        }
-
-        // Determine value based on field identification
-        let value = '';
-        if (labelText.includes('name') && labelText.includes('last name')) {
-            value = mockData.name;
-        } else if (labelText.includes('phone') || input.placeholder?.includes('country code')) {
-            value = mockData.phone;
-        } else if (labelText.includes('email')) {
-            value = mockData.email;
-        } else if (labelText.includes('linkedin')) {
-            value = mockData.linkedin;
-        } else if (labelText.includes('country')) {
-            value = mockData.country;
-        } else if (labelText.includes('city')) {
-            value = mockData.city;
-        } else if (labelText.includes('salary')) {
-            value = mockData.salary;
-        } else if (input.placeholder?.includes('mm/dd/yyyy') || labelText.includes('start date')) {
-            value = mockData.startDate;
-        // Skip motivation field - handled separately for contenteditable elements
-        }
-
-        // Fill the field using execCommand
-        if (value) {
-            input.focus();
-            document.execCommand('selectAll');
-            document.execCommand('delete');
-            document.execCommand('insertText', false, value);
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-            filled.push(labelText + ': ' + value.substring(0, 30) + '...');
-        }
-    });
-
+    }
+    
+    console.log(`✅ Successfully filled ${filled.length} fields`);
+    
     // Return the filled fields array
     return filled;
 }
