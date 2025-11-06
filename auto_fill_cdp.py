@@ -6,6 +6,7 @@ Connects to existing Chrome browser and executes form filling script
 
 import asyncio
 import json
+import os
 import websockets
 import sys
 from typing import Optional, Dict, Any
@@ -92,11 +93,16 @@ class CDPAutoFill:
     async def execute_auto_fill_script(self):
         """Execute the auto-fill JavaScript from external file"""
         try:
-            # Read the JavaScript file
-            with open("auto_fill.js", "r") as f:
+            # Read the JavaScript file - try generic version first, fallback to original
+            script_file = "auto_fill_generic.js"
+            if not os.path.exists(script_file):
+                script_file = "auto_fill.js"
+
+            with open(script_file, "r") as f:
                 script = f.read()
+            print(f"📜 Loaded script: {script_file}")
         except FileNotFoundError:
-            print("❌ auto_fill.js file not found")
+            print("❌ Neither auto_fill_generic.js nor auto_fill.js files found")
             return []
         except Exception as e:
             print(f"❌ Error reading JavaScript file: {e}")

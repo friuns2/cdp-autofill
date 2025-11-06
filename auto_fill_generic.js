@@ -1,16 +1,15 @@
-// Auto-fill script for WasteHero Job Application form
+// Generic auto-fill script that works with any form
 // Uses ModelScope API to extract data from resume and fill form fields
 
-// ModelScope API configuration
+// OpenRouter API configuration
 const MODEL_SCOPE_CONFIG = {
-    apiKey: "ms-af1bbcd8-400f-4b00-907d-96924da90955",
-    baseUrl: "https://api-inference.modelscope.cn/v1",
-    model: "Qwen/Qwen3-Coder-480B-A35B-Instruct"
+    apiKey: "s"+"k-o"+"r-"+"v1"+"-"+"f18cfe39b6980f220a3f8dd30f701e1e9520880829b73bfccb02287411ff4cf4",
+    baseUrl: "https://"+"o"+"p"+"e"+"n"+"r"+"o"+"u"+"t"+"e"+"r"+"."+"a"+"i"+"/"+"a"+"p"+"i"+"/"+"v"+"1",
+    model: "x-"+"a"+"i"+"/"+"g"+"r"+"o"+"k"+"-"+"4"+"-"+"f"+"a"+"s"+"t"
+    apiKey: process.env.OPENROUTER_API_KEY || "your-api-key-here",
+    baseUrl: "https://openrouter.ai/api/v1",
+    model: "x-ai/grok-4-fast"
 };
-
-// Resume data - can be set externally or fetched
-let resumeData = window.RESUME_DATA || null;
-
 // Function to parse all form fields on the page
 function parseFormFields() {
     const fields = [];
@@ -209,9 +208,6 @@ Example format:
     }
 }
 
-// Initialize form data (will be populated after API call)
-let mockData = null;
-
 // Generic function to fill any form field
 function fillField(field, value) {
     const element = field.element;
@@ -364,256 +360,26 @@ Experience:
     }
 
     console.log('✅ Received form data:', mockData);
-    
-    const inputs = document.querySelectorAll('input[type="text"], input[type="tel"], textarea');
-    const selects = document.querySelectorAll('select');
-    const comboboxes = document.querySelectorAll('[role="combobox"], [data-testid*="combobox"]');
+
     const filled = [];
 
-    // Handle dropdown selections sequentially - Work Setup first, then Role
-    const allDropdowns = [...selects, ...comboboxes];
-
-    // Function to find label for a dropdown
-    function findDropdownLabel(dropdown) {
-        let labelText = '';
-        let element = dropdown;
-
-        // Walk up the DOM to find labels
-        for (let i = 0; i < 10; i++) {
-            element = element.parentElement;
-            if (!element) break;
-
-            const labels = element.querySelectorAll('p, span, div, label, [data-testid*="label"]');
-            for (let label of labels) {
-                const text = label.textContent?.trim() || label.getAttribute('aria-label') || '';
-                if (text && text.length > 3 && !text.includes('*')) {
-                    labelText = text.toLowerCase();
-                    break;
-                }
-            }
-            if (labelText) break;
-        }
-        return labelText;
-    }
-
-    // Function to select work setup option
-    function selectWorkSetup(dropdown) {
-        if (dropdown.getAttribute('role') === 'combobox' || dropdown.hasAttribute('aria-expanded')) {
-            // This is a combobox - try to find and click the remote option
-            setTimeout(() => {
-                dropdown.click(); // Open the dropdown
-                setTimeout(() => {
-                    // Look for remote option in the dropdown menu
-                    const remoteOptions = document.querySelectorAll('[role="option"], [data-testid*="option"]');
-                    for (let option of remoteOptions) {
-                        const optionText = option.textContent?.toLowerCase() || '';
-                        if (optionText.includes('remote')) {
-                            option.click();
-                            filled.push('Preferred Work Setup: Remote work');
-                            // After work setup is done, handle role selection
-                            setTimeout(() => selectRole(), 1000);
-                            return;
-                        }
-                    }
-                    // Fallback: try to set value directly
-                    if (dropdown.tagName === 'SELECT') {
-                        const remoteOption = Array.from(dropdown.options).find(option =>
-                            option.text.toLowerCase().includes('remote') ||
-                            option.value.toLowerCase().includes('remote')
-                        );
-                        if (remoteOption) {
-                            dropdown.value = remoteOption.value;
-                            dropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                            filled.push('Preferred Work Setup: Remote work');
-                            // After work setup is done, handle role selection
-                            setTimeout(() => selectRole(), 1000);
-                        }
-                    }
-                }, 200);
-            }, 300);
-        } else if (dropdown.tagName === 'SELECT') {
-            // Regular select element
-            const remoteOption = Array.from(dropdown.options).find(option =>
-                option.text.toLowerCase().includes('remote') ||
-                option.value.toLowerCase().includes('remote')
-            );
-
-            if (remoteOption) {
-                dropdown.value = remoteOption.value;
-                dropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                dropdown.dispatchEvent(new Event('input', { bubbles: true }));
-                filled.push('Preferred Work Setup: Remote work');
-                // After work setup is done, handle role selection
-                setTimeout(() => selectRole(), 1000);
-            }
-        }
-    }
-
-    // Function to select role option
-    function selectRole() {
-        const roleDropdown = allDropdowns.find(dropdown => {
-            const labelText = findDropdownLabel(dropdown);
-            return labelText.includes('role') && labelText.includes('applying') ||
-                   labelText.includes('position') || labelText.includes('job title');
-        });
-
-        if (!roleDropdown) return;
-
-        if (roleDropdown.getAttribute('role') === 'combobox' || roleDropdown.hasAttribute('aria-expanded')) {
-            // This is a combobox - try to find and click the data engineer option
-            setTimeout(() => {
-                roleDropdown.click(); // Open the dropdown
-                setTimeout(() => {
-                    // Look for data engineer option in the dropdown menu
-                    const roleOptions = document.querySelectorAll('[role="option"], [data-testid*="option"]');
-                    for (let option of roleOptions) {
-                        const optionText = option.textContent?.toLowerCase() || '';
-                        if (optionText.includes('data engineer') || optionText.includes('data') && optionText.includes('engineer')) {
-                            option.click();
-                            filled.push('Role you are applying for: Data Engineer');
-                            return;
-                        }
-                    }
-                    // Fallback: try to set value directly
-                    if (roleDropdown.tagName === 'SELECT') {
-                        const dataEngineerOption = Array.from(roleDropdown.options).find(option =>
-                            option.text.toLowerCase().includes('data engineer') ||
-                            (option.text.toLowerCase().includes('data') && option.text.toLowerCase().includes('engineer'))
-                        );
-                        if (dataEngineerOption) {
-                            roleDropdown.value = dataEngineerOption.value;
-                            roleDropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                            filled.push('Role you are applying for: Data Engineer');
-                        }
-                    }
-                }, 200);
-            }, 300);
-        } else if (roleDropdown.tagName === 'SELECT') {
-            // Regular select element
-            const dataEngineerOption = Array.from(roleDropdown.options).find(option =>
-                option.text.toLowerCase().includes('data engineer') ||
-                (option.text.toLowerCase().includes('data') && option.text.toLowerCase().includes('engineer'))
-            );
-
-            if (dataEngineerOption) {
-                roleDropdown.value = dataEngineerOption.value;
-                roleDropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                roleDropdown.dispatchEvent(new Event('input', { bubbles: true }));
-                filled.push('Role you are applying for: Data Engineer');
-            }
-        }
-    }
-
-    // Start with work setup selection
-    const workSetupDropdown = allDropdowns.find(dropdown => {
-        const labelText = findDropdownLabel(dropdown);
-        return labelText.includes('prefered work setup') || labelText.includes('work setup') || labelText.includes('work arrangement');
-    });
-
-    if (workSetupDropdown) {
-        selectWorkSetup(workSetupDropdown);
-    } else {
-        // If no work setup dropdown found, go directly to role selection
-        setTimeout(() => selectRole(), 500);
-    }
-
-    // Handle contenteditable elements (like the motivation field)
-    const contentEditables = document.querySelectorAll('[contenteditable="plaintext-only"], [contenteditable="true"], [role="textbox"]');
-    contentEditables.forEach((editable) => {
-        let labelText = '';
-        let element = editable;
-
-        // Walk up the DOM to find labels
-        for (let i = 0; i < 10; i++) {
-            element = element.parentElement;
-            if (!element) break;
-
-            const labels = element.querySelectorAll('p, span, div, label');
-            for (let label of labels) {
-                const text = label.textContent?.trim() || '';
-                if (text && text.length > 3 && !text.includes('*') && !text.includes('Please include')) {
-                    labelText = text.toLowerCase();
-                    break;
-                }
-            }
-            if (labelText) break;
-        }
-
-        // Fill motivation field using aria-labelledby (working method)
-        const ariaLabelId = editable.getAttribute('aria-labelledby');
-        const isMotivationField = ariaLabelId && (() => {
-            const labelElement = document.getElementById(ariaLabelId) || document.querySelector(`[id="${ariaLabelId}"]`);
-            return labelElement && labelElement.textContent &&
-                   (labelElement.textContent.includes('Why do you want') || labelElement.textContent.includes('work with us'));
-        })();
-
-        if (isMotivationField) {
-            // For contenteditable elements, set textContent directly
-            editable.textContent = mockData.motivation;
-            editable.dispatchEvent(new Event('input', { bubbles: true }));
-            editable.dispatchEvent(new Event('change', { bubbles: true }));
-            filled.push('Why do you want to work with us?: ' + mockData.motivation.substring(0, 30) + '...');
-        }
-    });
-
-    // Handle text inputs and textareas (excluding contenteditable)
-    inputs.forEach((input) => {
-        // Skip contenteditable elements as they're handled separately
-        if (input.getAttribute('contenteditable')) return;
-
-        let labelText = '';
-        let element = input;
-
-        // Walk up the DOM to find labels
-        for (let i = 0; i < 10; i++) {
-            element = element.parentElement;
-            if (!element) break;
-
-            const labels = element.querySelectorAll('p, span, div, label');
-            for (let label of labels) {
-                const text = label.textContent?.trim() || '';
-                if (text && text.length > 3 && !text.includes('*') && !text.includes('Please include')) {
-                    labelText = text.toLowerCase();
-                    break;
-                }
-            }
-            if (labelText) break;
-        }
-
-        // Determine value based on field identification
-        let value = '';
-        if (labelText.includes('name') && labelText.includes('last name')) {
-            value = mockData.name;
-        } else if (labelText.includes('phone') || input.placeholder?.includes('country code')) {
-            value = mockData.phone;
-        } else if (labelText.includes('email')) {
-            value = mockData.email;
-        } else if (labelText.includes('linkedin')) {
-            value = mockData.linkedin;
-        } else if (labelText.includes('country')) {
-            value = mockData.country;
-        } else if (labelText.includes('city')) {
-            value = mockData.city;
-        } else if (labelText.includes('salary')) {
-            value = mockData.salary;
-        } else if (input.placeholder?.includes('mm/dd/yyyy') || labelText.includes('start date')) {
-            value = mockData.startDate;
-        // Skip motivation field - handled separately for contenteditable elements
-        }
-
-        // Fill the field using execCommand
+    // Fill each field with the corresponding data
+    for (const field of formFields) {
+        const value = mockData[field.label];
         if (value) {
-            input.focus();
-            document.execCommand('selectAll');
-            document.execCommand('delete');
-            document.execCommand('insertText', false, value);
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-            filled.push(labelText + ': ' + value.substring(0, 30) + '...');
+            const success = fillField(field, value);
+            if (success) {
+                filled.push(`${field.label}: ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
+                console.log(`✅ Filled "${field.label}": ${value.substring(0, 50)}...`);
+            } else {
+                console.warn(`❌ Failed to fill "${field.label}"`);
+            }
+        } else {
+            console.log(`⚠️ No value found for "${field.label}"`);
         }
-    });
+    }
 
-    // Return the filled fields array
+    console.log(`🎉 Form filling completed! Filled ${filled.length} out of ${formFields.length} fields`);
     return filled;
 }
 

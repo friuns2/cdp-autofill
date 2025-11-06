@@ -1,22 +1,22 @@
-# Generic AI-Powered Form Auto-Fill Script
+# CDP Auto-Fill Script
 
-An intelligent Python script that connects to Chrome via Chrome DevTools Protocol (CDP) and automatically fills out **any** job application form using AI to extract data from your resume. The script uses ModelScope's Qwen AI to intelligently match resume data to form fields.
+A Python script that connects to an existing Chrome browser via Chrome DevTools Protocol (CDP) and automatically fills out **any form** using AI-powered field detection and data mapping.
 
-## Features
+## ✨ What's New (Generic AI-Powered Version)
 
-✨ **Generic & Intelligent**: Works with any job application form - no hardcoding required  
-🤖 **AI-Powered**: Uses ModelScope Qwen AI to extract and match resume data to form fields  
-🔍 **Smart Detection**: Automatically detects all form fields (inputs, textareas, selects, comboboxes, contenteditable)  
-🎯 **Flexible Matching**: Intelligently matches resume data to form fields based on labels, placeholders, and context  
-⚙️ **Configurable**: Supports custom company names, job titles, and field mappings  
-📝 **Resume-Based**: Extracts data from your resume/LinkedIn profile automatically
+**No more hardcoded forms!** The new `auto_fill_generic.js` uses artificial intelligence to:
+
+- 🔍 **Automatically detect** all form fields on any webpage
+- 🧠 **Understand field context** using AI analysis of labels and content
+- 📝 **Generate personalized responses** based on your resume
+- 🎯 **Work with any form** - job applications, surveys, contact forms, etc.
+- ⚡ **Handle all field types** - text inputs, dropdowns, textareas, comboboxes
 
 ## Prerequisites
 
 1. **Python 3.7+** installed
 2. **Chrome browser** running with remote debugging enabled
 3. **Required Python packages** (install with pip)
-4. **ModelScope API Key** (included in the script)
 
 ## Installation
 
@@ -32,9 +32,6 @@ pip install -r requirements.txt
 # Linux/Mac
 google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-profile
 
-# macOS (if google-chrome doesn't work)
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-profile
-
 # Windows
 "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir=C:\tmp\chrome-profile
 ```
@@ -47,200 +44,97 @@ google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-profile
 
 ## Usage
 
-### Basic Usage (with defaults):
+### Basic usage (with defaults):
 
 ```bash
 python auto_fill_cdp.py
 ```
 
-The script will:
-1. Connect to Chrome via CDP
-2. Analyze the current form on the page
-3. Extract data from `resume.txt` (or embedded resume data)
-4. Use AI to intelligently match resume data to form fields
-5. Fill all detected fields automatically
-
-### Custom CDP URL and Form URL:
+### Custom CDP URL and form URL:
 
 ```bash
 python auto_fill_cdp.py "ws://localhost:9222/devtools/browser/YOUR_SESSION_ID" "https://your-form-url.com"
 ```
 
-### Advanced Configuration:
+### Examples:
 
-You can configure the auto-fill behavior by setting `window.AUTO_FILL_CONFIG` before running the script:
+```bash
+# Use default settings
+python auto_fill_cdp.py
 
-```javascript
-window.AUTO_FILL_CONFIG = {
-    companyName: "Google",           // Override auto-detected company name
-    jobTitle: "Software Engineer",   // Override auto-detected job title
-    resumeData: "Your resume text...", // Provide resume data directly
-    preferredWorkSetup: "remote",    // Options: "remote", "hybrid", "onsite"
-    customMappings: {                // Custom field mappings
-        "referral": "LinkedIn",
-        "how did you hear": "Company website"
-    }
-};
+# Specify custom CDP URL
+python auto_fill_cdp.py "ws://localhost:9222/devtools/browser/abc123"
+
+# Specify both CDP URL and form URL
+python auto_fill_cdp.py "ws://localhost:9222/devtools/browser/abc123" "https://example.com/form"
 ```
 
-### Providing Resume Data:
+## How it works
 
-The script looks for resume data in this order:
+1. **Connects** to Chrome via CDP WebSocket
+2. **Navigates** to the specified form URL (optional)
+3. **Dynamically parses** all form fields on the page (inputs, selects, textareas, dropdowns)
+4. **Analyzes** field labels using AI to understand what each field requires
+5. **Maps** resume data to appropriate form fields using ModelScope AI API
+6. **Fills** each field with personalized, contextually appropriate data
+7. **Dispatches** proper DOM events to ensure form validation
 
-1. `window.AUTO_FILL_CONFIG.resumeData`
-2. `window.RESUME_DATA`
-3. Fetches from `/resume.txt`
-4. Falls back to embedded default resume
+## AI-Powered Form Detection
 
-## How It Works
+The script now uses **artificial intelligence** to:
+- **Parse any form structure** - no hardcoded field names or company-specific logic
+- **Understand field context** - analyzes labels, placeholders, and aria attributes
+- **Map resume data intelligently** - fills name fields with names, contact fields with contact info, etc.
+- **Generate contextual responses** - creates personalized motivation letters and answers
 
-1. **Form Analysis**: Automatically detects all fillable fields on the page
-   - Input fields (text, email, tel, url, date)
-   - Textareas
-   - Select dropdowns
-   - Custom comboboxes (role="combobox")
-   - Contenteditable fields
+## Dynamic Data Mapping
 
-2. **AI Extraction**: Sends resume and form field information to ModelScope AI
-   - Analyzes resume content
-   - Extracts relevant information (name, email, phone, skills, experience, etc.)
-   - Generates personalized motivation letters based on company and job title
-   - Matches data to detected form fields
+The AI analyzes your resume and fills **any form field** with contextually appropriate data:
 
-3. **Intelligent Filling**: Fills fields using multiple strategies
-   - Pattern matching (email, phone, linkedin, etc.)
-   - Custom mappings (user-defined)
-   - AI-suggested values
-   - Handles different field types appropriately
-
-4. **Event Dispatching**: Triggers proper DOM events to ensure form validation
-
-## Supported Field Types
-
-The script intelligently detects and fills:
-
-- **Personal Info**: Name, email, phone, address, city, country, zip code
-- **Professional**: LinkedIn, GitHub, portfolio, current company, current title
-- **Job-Specific**: Salary expectations, start date, years of experience, skills
-- **Motivation**: Cover letters, motivation statements, "why do you want to work here"
-- **Dropdowns**: Work setup (remote/hybrid/onsite), job roles, education level
-- **Custom Fields**: Any field with a recognizable label or placeholder
+- **Personal Information**: Name, phone, email, LinkedIn from your resume
+- **Location Data**: Country, city, address from your resume
+- **Professional Details**: Salary expectations, start dates, experience level
+- **Motivation/Responses**: AI-generated personalized responses explaining your interest and qualifications
+- **Dropdown Selections**: Intelligent selection from available options based on your profile
+- **Custom Fields**: Any field type is supported - text inputs, textareas, selects, comboboxes, contenteditable elements
 
 ## Files Included
 
 - `auto_fill_cdp.py` - Main Python script for CDP communication
-- `auto_fill.js` - **Generic** JavaScript file with AI-powered auto-fill logic
+- `auto_fill_generic.js` - **NEW** AI-powered generic form filler (works with any form)
+- `auto_fill.js` - Legacy JavaScript file (WasteHero-specific)
 - `get_cdp_url.py` - Helper script to find CDP WebSocket URLs
 - `test_auto_fill.py` - Test script for the auto-fill functionality
-- `resume.txt` - Your resume data (customize this!)
+- `resume.txt` - Resume data used by the AI for form filling
 - `requirements.txt` - Python dependencies
 - `README.md` - This documentation
 
 ## Customization
 
-### Updating Your Resume
+- **Resume Data**: Edit `resume.txt` to update the information used for form filling
+- **AI Prompts**: Modify the LLM prompts in `auto_fill_generic.js` for different behavior
+- **Field Detection**: Customize field parsing logic in the `parseFormFields()` function
+- **Fallback Data**: Update the fallback values in the script for when AI is unavailable
 
-Edit `resume.txt` with your own resume data. The AI will extract relevant information automatically.
-
-### Custom Field Mappings
-
-For fields that aren't automatically detected, add custom mappings:
-
-```javascript
-window.AUTO_FILL_CONFIG = {
-    customMappings: {
-        "how did you hear about us": "LinkedIn",
-        "referral source": "Company Career Page",
-        "preferred start date": "Immediately"
-    }
-};
-```
-
-### Modifying AI Behavior
-
-Edit the `auto_fill.js` file to customize:
-- Field detection patterns (line ~295-318)
-- AI prompt structure (line ~139-170)
-- Field matching logic (line ~280-338)
+The script automatically uses `auto_fill_generic.js` if available, falling back to `auto_fill.js` for backward compatibility.
 
 ## Troubleshooting
 
 ### Connection Issues
 - Make sure Chrome is running with `--remote-debugging-port=9222`
-- Check that the WebSocket URL is correct using `python get_cdp_url.py`
+- Check that the WebSocket URL is correct
 - Ensure no firewall is blocking the connection
 
 ### Form Not Filling
-- Check Chrome DevTools console for error messages
-- Verify resume data is available (check `resume.txt` or `window.RESUME_DATA`)
-- Some forms may have anti-automation measures or unusual field structures
-- Try adding custom mappings for fields that aren't auto-detected
-
-### AI Extraction Issues
-- Ensure ModelScope API is accessible (check your internet connection)
-- Verify the API key is valid in `auto_fill.js`
-- Check the console for AI response errors
-- Resume data should be in plain text format
+- Verify you're on the correct page
+- Check that the form fields match the expected label patterns
+- Some forms may have anti-automation measures
 
 ### Script Errors
 - Check Python version (3.7+ required)
-- Ensure all dependencies are installed: `pip install -r requirements.txt`
+- Ensure all dependencies are installed
 - Look at Chrome DevTools console for JavaScript errors
-- Use `python test_auto_fill.py` to test the script
 
-## Examples
+## Security Note
 
-### Example 1: Fill a job application form
-
-```bash
-# 1. Start Chrome with debugging
-google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-profile
-
-# 2. Navigate to the job application form in Chrome
-
-# 3. Run the script
-python auto_fill_cdp.py
-```
-
-### Example 2: Custom configuration
-
-```python
-# In Chrome DevTools Console, before running the script:
-window.AUTO_FILL_CONFIG = {
-    companyName: "Tesla",
-    jobTitle: "Senior Software Engineer",
-    preferredWorkSetup: "hybrid",
-    customMappings: {
-        "referral": "Employee referral - John Smith",
-        "notice period": "2 weeks"
-    }
-};
-```
-
-### Example 3: Using your own resume
-
-```bash
-# Edit resume.txt with your information
-nano resume.txt
-
-# Run the script
-python auto_fill_cdp.py
-```
-
-## Security & Privacy
-
-⚠️ **Important Notes:**
-- This script is for **educational and personal use only**
-- Your resume data is sent to ModelScope AI API for processing
-- The API key is embedded in the script (consider using environment variables for production)
-- Be respectful of websites' terms of service
-- Only use on forms you have permission to fill
-- Review all filled data before submitting any form
-
-## License
-
-This project is for educational purposes. Use responsibly and ethically.
-
-## Contributing
-
-Feel free to submit issues, fork the repository, and create pull requests for any improvements.
+This script is for educational and testing purposes. Be respectful of websites' terms of service and only use for forms you have permission to fill.

@@ -13,7 +13,7 @@ async def test_auto_fill():
     # Example CDP URL - replace with your actual Chrome debugging URL
     CDP_URL = "ws://localhost:9222/devtools/browser"
 
-    # Form URL to test with
+    # Form URL to test with (using a generic test form)
     FORM_URL = "https://airtable.com/appnFx0g1bd3i8Shb/pagTDfAhnTL0JktPf/form"
 
     print("🧪 Testing CDP Auto-Fill")
