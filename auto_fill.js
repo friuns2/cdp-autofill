@@ -11,19 +11,6 @@ const MODEL_SCOPE_CONFIG = {
 // Resume data - can be set externally or fetched
 let resumeData = window.RESUME_DATA || null;
 
-// Field requirements for the API
-const fieldRequirements = {
-    name: "Full name (first and last name)",
-    phone: "Phone number with country code",
-    email: "Email address",
-    linkedin: "LinkedIn profile URL",
-    country: "Country name",
-    city: "City name",
-    salary: "Expected salary (format: $X,XXX USD or similar)",
-    startDate: "Available start date (format: MM/DD/YYYY)",
-    motivation: "A compelling motivation letter explaining why you want to work with this company, tailored to the company's mission and your relevant experience"
-};
-
 // Function to call ModelScope API
 async function getFormDataFromResume(resumeText, companyName = "WasteHero", jobTitle = "Data Engineer") {
     const prompt = `You are extracting information from a resume/LinkedIn profile to fill out a job application form.
@@ -414,9 +401,8 @@ Experience:
 // This allows CDP to wait for the async operation to complete
 fillForm().then(filled => {
     console.log('✅ Form filling completed! Filled fields:', filled);
+    return filled;
 }).catch(error => {
     console.error('❌ Error filling form:', error);
+    throw error;
 });
-
-// Return the promise so CDP can await it
-fillForm();

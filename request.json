@@ -1,1 +1,0 @@
-{"model": "Qwen/Qwen3-Coder-480B-A35B-Instruct", "messages": [{"role": "user", "content": "Can you analyze this JavaScript auto-fill script and tell me what it does? The script is for auto-filling job application forms with mock data. It handles dropdowns, text inputs, and contenteditable elements."}], "max_tokens": 500}
