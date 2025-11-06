@@ -18,10 +18,11 @@ const selects = document.querySelectorAll('select');
 const comboboxes = document.querySelectorAll('[role="combobox"], [data-testid*="combobox"]');
 const filled = [];
 
-// Handle dropdown selections first (both select elements and comboboxes)
+// Handle dropdown selections sequentially - Work Setup first, then Role
 const allDropdowns = [...selects, ...comboboxes];
 
-allDropdowns.forEach((dropdown) => {
+// Function to find label for a dropdown
+function findDropdownLabel(dropdown) {
     let labelText = '';
     let element = dropdown;
 
@@ -40,104 +41,129 @@ allDropdowns.forEach((dropdown) => {
         }
         if (labelText) break;
     }
+    return labelText;
+}
 
-    // Select preferred work setup as "Remote work"
-    if (labelText.includes('prefered work setup') || labelText.includes('work setup') || labelText.includes('work arrangement')) {
-        // For comboboxes, we need to find the associated options or trigger a click
-        if (dropdown.getAttribute('role') === 'combobox' || dropdown.hasAttribute('aria-expanded')) {
-            // This is a combobox - try to find and click the remote option
+// Function to select work setup option
+function selectWorkSetup(dropdown) {
+    if (dropdown.getAttribute('role') === 'combobox' || dropdown.hasAttribute('aria-expanded')) {
+        // This is a combobox - try to find and click the remote option
+        setTimeout(() => {
+            dropdown.click(); // Open the dropdown
             setTimeout(() => {
-                dropdown.click(); // Open the dropdown
-                setTimeout(() => {
-                    // Look for remote option in the dropdown menu
-                    const remoteOptions = document.querySelectorAll('[role="option"], [data-testid*="option"]');
-                    for (let option of remoteOptions) {
-                        const optionText = option.textContent?.toLowerCase() || '';
-                        if (optionText.includes('remote')) {
-                            option.click();
-                            filled.push('Preferred Work Setup: Remote work');
-                            return;
-                        }
+                // Look for remote option in the dropdown menu
+                const remoteOptions = document.querySelectorAll('[role="option"], [data-testid*="option"]');
+                for (let option of remoteOptions) {
+                    const optionText = option.textContent?.toLowerCase() || '';
+                    if (optionText.includes('remote')) {
+                        option.click();
+                        filled.push('Preferred Work Setup: Remote work');
+                        // After work setup is done, handle role selection
+                        setTimeout(() => selectRole(), 1000);
+                        return;
                     }
-                    // Fallback: try to set value directly
-                    if (dropdown.tagName === 'SELECT') {
-                        const remoteOption = Array.from(dropdown.options).find(option =>
-                            option.text.toLowerCase().includes('remote') ||
-                            option.value.toLowerCase().includes('remote')
-                        );
-                        if (remoteOption) {
-                            dropdown.value = remoteOption.value;
-                            dropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                            filled.push('Preferred Work Setup: Remote work');
-                        }
+                }
+                // Fallback: try to set value directly
+                if (dropdown.tagName === 'SELECT') {
+                    const remoteOption = Array.from(dropdown.options).find(option =>
+                        option.text.toLowerCase().includes('remote') ||
+                        option.value.toLowerCase().includes('remote')
+                    );
+                    if (remoteOption) {
+                        dropdown.value = remoteOption.value;
+                        dropdown.dispatchEvent(new Event('change', { bubbles: true }));
+                        filled.push('Preferred Work Setup: Remote work');
+                        // After work setup is done, handle role selection
+                        setTimeout(() => selectRole(), 1000);
                     }
-                }, 100);
-            }, 500);
-        } else if (dropdown.tagName === 'SELECT') {
-            // Regular select element
-            const remoteOption = Array.from(dropdown.options).find(option =>
-                option.text.toLowerCase().includes('remote') ||
-                option.value.toLowerCase().includes('remote')
-            );
+                }
+            }, 200);
+        }, 300);
+    } else if (dropdown.tagName === 'SELECT') {
+        // Regular select element
+        const remoteOption = Array.from(dropdown.options).find(option =>
+            option.text.toLowerCase().includes('remote') ||
+            option.value.toLowerCase().includes('remote')
+        );
 
-            if (remoteOption) {
-                dropdown.value = remoteOption.value;
-                dropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                dropdown.dispatchEvent(new Event('input', { bubbles: true }));
-                filled.push('Preferred Work Setup: Remote work');
-            }
+        if (remoteOption) {
+            dropdown.value = remoteOption.value;
+            dropdown.dispatchEvent(new Event('change', { bubbles: true }));
+            dropdown.dispatchEvent(new Event('input', { bubbles: true }));
+            filled.push('Preferred Work Setup: Remote work');
+            // After work setup is done, handle role selection
+            setTimeout(() => selectRole(), 1000);
         }
     }
+}
 
-    // Select role as "Data Engineer"
-    if (labelText.includes('role') && labelText.includes('applying') ||
-        labelText.includes('position') || labelText.includes('job title')) {
+// Function to select role option
+function selectRole() {
+    const roleDropdown = allDropdowns.find(dropdown => {
+        const labelText = findDropdownLabel(dropdown);
+        return labelText.includes('role') && labelText.includes('applying') ||
+               labelText.includes('position') || labelText.includes('job title');
+    });
 
-        if (dropdown.getAttribute('role') === 'combobox' || dropdown.hasAttribute('aria-expanded')) {
-            // This is a combobox - try to find and click the data engineer option
+    if (!roleDropdown) return;
+
+    if (roleDropdown.getAttribute('role') === 'combobox' || roleDropdown.hasAttribute('aria-expanded')) {
+        // This is a combobox - try to find and click the data engineer option
+        setTimeout(() => {
+            roleDropdown.click(); // Open the dropdown
             setTimeout(() => {
-                dropdown.click(); // Open the dropdown
-                setTimeout(() => {
-                    // Look for data engineer option in the dropdown menu
-                    const roleOptions = document.querySelectorAll('[role="option"], [data-testid*="option"]');
-                    for (let option of roleOptions) {
-                        const optionText = option.textContent?.toLowerCase() || '';
-                        if (optionText.includes('data engineer') || optionText.includes('data') && optionText.includes('engineer')) {
-                            option.click();
-                            filled.push('Role you are applying for: Data Engineer');
-                            return;
-                        }
+                // Look for data engineer option in the dropdown menu
+                const roleOptions = document.querySelectorAll('[role="option"], [data-testid*="option"]');
+                for (let option of roleOptions) {
+                    const optionText = option.textContent?.toLowerCase() || '';
+                    if (optionText.includes('data engineer') || optionText.includes('data') && optionText.includes('engineer')) {
+                        option.click();
+                        filled.push('Role you are applying for: Data Engineer');
+                        return;
                     }
-                    // Fallback: try to set value directly
-                    if (dropdown.tagName === 'SELECT') {
-                        const dataEngineerOption = Array.from(dropdown.options).find(option =>
-                            option.text.toLowerCase().includes('data engineer') ||
-                            (option.text.toLowerCase().includes('data') && option.text.toLowerCase().includes('engineer'))
-                        );
-                        if (dataEngineerOption) {
-                            dropdown.value = dataEngineerOption.value;
-                            dropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                            filled.push('Role you are applying for: Data Engineer');
-                        }
+                }
+                // Fallback: try to set value directly
+                if (roleDropdown.tagName === 'SELECT') {
+                    const dataEngineerOption = Array.from(roleDropdown.options).find(option =>
+                        option.text.toLowerCase().includes('data engineer') ||
+                        (option.text.toLowerCase().includes('data') && option.text.toLowerCase().includes('engineer'))
+                    );
+                    if (dataEngineerOption) {
+                        roleDropdown.value = dataEngineerOption.value;
+                        roleDropdown.dispatchEvent(new Event('change', { bubbles: true }));
+                        filled.push('Role you are applying for: Data Engineer');
                     }
-                }, 100);
-            }, 500);
-        } else if (dropdown.tagName === 'SELECT') {
-            // Regular select element
-            const dataEngineerOption = Array.from(dropdown.options).find(option =>
-                option.text.toLowerCase().includes('data engineer') ||
-                (option.text.toLowerCase().includes('data') && option.text.toLowerCase().includes('engineer'))
-            );
+                }
+            }, 200);
+        }, 300);
+    } else if (roleDropdown.tagName === 'SELECT') {
+        // Regular select element
+        const dataEngineerOption = Array.from(roleDropdown.options).find(option =>
+            option.text.toLowerCase().includes('data engineer') ||
+            (option.text.toLowerCase().includes('data') && option.text.toLowerCase().includes('engineer'))
+        );
 
-            if (dataEngineerOption) {
-                dropdown.value = dataEngineerOption.value;
-                dropdown.dispatchEvent(new Event('change', { bubbles: true }));
-                dropdown.dispatchEvent(new Event('input', { bubbles: true }));
-                filled.push('Role you are applying for: Data Engineer');
-            }
+        if (dataEngineerOption) {
+            roleDropdown.value = dataEngineerOption.value;
+            roleDropdown.dispatchEvent(new Event('change', { bubbles: true }));
+            roleDropdown.dispatchEvent(new Event('input', { bubbles: true }));
+            filled.push('Role you are applying for: Data Engineer');
         }
     }
+}
+
+// Start with work setup selection
+const workSetupDropdown = allDropdowns.find(dropdown => {
+    const labelText = findDropdownLabel(dropdown);
+    return labelText.includes('prefered work setup') || labelText.includes('work setup') || labelText.includes('work arrangement');
 });
+
+if (workSetupDropdown) {
+    selectWorkSetup(workSetupDropdown);
+} else {
+    // If no work setup dropdown found, go directly to role selection
+    setTimeout(() => selectRole(), 500);
+}
 
 // Handle text inputs and textareas
 inputs.forEach((input) => {
