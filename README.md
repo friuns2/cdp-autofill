@@ -84,9 +84,18 @@ The script fills the following fields with realistic mock data:
 - **Start Date**: "01/15/2025"
 - **Motivation**: Detailed motivation text about WasteHero
 
+## Files Included
+
+- `auto_fill_cdp.py` - Main Python script for CDP communication
+- `auto_fill.js` - JavaScript file containing the auto-fill logic
+- `get_cdp_url.py` - Helper script to find CDP WebSocket URLs
+- `test_auto_fill.py` - Test script for the auto-fill functionality
+- `requirements.txt` - Python dependencies
+- `README.md` - This documentation
+
 ## Customization
 
-To modify the mock data or form field detection logic, edit the JavaScript code in the `execute_auto_fill_script()` method.
+To modify the mock data or form field detection logic, edit the `auto_fill.js` file. The Python script will automatically load and execute this JavaScript file.
 
 ## Troubleshooting
 

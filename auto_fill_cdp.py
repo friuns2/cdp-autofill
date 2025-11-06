@@ -86,98 +86,19 @@ class CDPAutoFill:
         await asyncio.sleep(2)
 
     async def execute_auto_fill_script(self):
-        """Execute the auto-fill JavaScript"""
-        script = """
-        // Mock data for execCommand auto-fill
-        const mockData = {
-            name: "John Doe",
-            phone: "+1 555-123-4567",
-            email: "john.doe@email.com",
-            linkedin: "https://www.linkedin.com/in/john-doe-123456",
-            country: "United States",
-            city: "San Francisco",
-            salary: "$8,000 USD",
-            startDate: "01/15/2025",
-            motivation: "I am passionate about sustainable waste management and environmental technology. WasteHero's mission to help cities optimize operations and create greener communities resonates deeply with me. I have experience in software development and would love to contribute to building technology that makes a real difference in environmental sustainability. The opportunity to work on solutions that directly impact communities and the planet is what motivates me most."
-        };
+        """Execute the auto-fill JavaScript from external file"""
+        try:
+            # Read the JavaScript file
+            with open("auto_fill.js", "r") as f:
+                script = f.read()
+        except FileNotFoundError:
+            print("❌ auto_fill.js file not found")
+            return []
+        except Exception as e:
+            print(f"❌ Error reading JavaScript file: {e}")
+            return []
 
-        // Function to fill field using execCommand
-        function fillFieldWithExecCommand(element, text) {
-            element.focus();
-
-            // Use execCommand as requested
-            document.execCommand('selectAll');
-            document.execCommand('delete');
-            document.execCommand('insertText', false, text);
-
-            // Dispatch events to ensure form recognizes the change
-            element.dispatchEvent(new Event('input', { bubbles: true }));
-            element.dispatchEvent(new Event('change', { bubbles: true }));
-
-            return true;
-        }
-
-        // Get all input elements and textareas
-        const inputs = document.querySelectorAll('input[type="text"], input[type="tel"], textarea');
-        const filledFields = [];
-
-        inputs.forEach((input) => {
-            // Check various ways to identify the field
-            const placeholder = input.placeholder || '';
-
-            // Find the associated label
-            let labelText = '';
-            let element = input;
-
-            // Walk up the DOM to find labels
-            for (let i = 0; i < 10; i++) {
-                element = element.parentElement;
-                if (!element) break;
-
-                const labels = element.querySelectorAll('p, span, div, label');
-                for (let label of labels) {
-                    const text = label.textContent?.trim() || '';
-                    if (text && text.length > 3 && !text.includes('*') && !text.includes('Please include')) {
-                        labelText = text.toLowerCase();
-                        break;
-                    }
-                }
-                if (labelText) break;
-            }
-
-            // Determine value based on field identification
-            let value = '';
-
-            if (labelText.includes('name') && labelText.includes('last name')) {
-                value = mockData.name;
-            } else if (labelText.includes('phone') || placeholder.includes('country code')) {
-                value = mockData.phone;
-            } else if (labelText.includes('email')) {
-                value = mockData.email;
-            } else if (labelText.includes('linkedin')) {
-                value = mockData.linkedin;
-            } else if (labelText.includes('country')) {
-                value = mockData.country;
-            } else if (labelText.includes('city')) {
-                value = mockData.city;
-            } else if (labelText.includes('salary')) {
-                value = mockData.salary;
-            } else if (placeholder.includes('mm/dd/yyyy') || labelText.includes('start date')) {
-                value = mockData.startDate;
-            } else if (labelText.includes('why do you want') || labelText.includes('work with us')) {
-                value = mockData.motivation;
-            }
-
-            if (value) {
-                fillFieldWithExecCommand(input, value);
-                filledFields.push(labelText + ': ' + value.substring(0, 30) + '...');
-            }
-        });
-
-        return filledFields;
-        """
-
-        print("📝 Executing auto-fill script...")
+        print("📝 Executing auto-fill script from auto_fill.js...")
 
         try:
             result = await self._send_command("Runtime.evaluate", {
@@ -193,6 +114,7 @@ class CDPAutoFill:
                 return filled_fields
             else:
                 print("❌ Script execution failed")
+                print("Result:", result)
                 return []
 
         except Exception as e:
