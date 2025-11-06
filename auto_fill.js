@@ -165,8 +165,50 @@ if (workSetupDropdown) {
     setTimeout(() => selectRole(), 500);
 }
 
-// Handle text inputs and textareas
+// Handle contenteditable elements (like the motivation field)
+const contentEditables = document.querySelectorAll('[contenteditable="plaintext-only"], [contenteditable="true"], [role="textbox"]');
+contentEditables.forEach((editable) => {
+    let labelText = '';
+    let element = editable;
+
+    // Walk up the DOM to find labels
+    for (let i = 0; i < 10; i++) {
+        element = element.parentElement;
+        if (!element) break;
+
+        const labels = element.querySelectorAll('p, span, div, label');
+        for (let label of labels) {
+            const text = label.textContent?.trim() || '';
+            if (text && text.length > 3 && !text.includes('*') && !text.includes('Please include')) {
+                labelText = text.toLowerCase();
+                break;
+            }
+        }
+        if (labelText) break;
+    }
+
+    // Fill motivation field using aria-labelledby (working method)
+    const ariaLabelId = editable.getAttribute('aria-labelledby');
+    const isMotivationField = ariaLabelId && (() => {
+        const labelElement = document.getElementById(ariaLabelId) || document.querySelector(`[id="${ariaLabelId}"]`);
+        return labelElement && labelElement.textContent &&
+               (labelElement.textContent.includes('Why do you want') || labelElement.textContent.includes('work with us'));
+    })();
+
+    if (isMotivationField) {
+        // For contenteditable elements, set textContent directly
+        editable.textContent = mockData.motivation;
+        editable.dispatchEvent(new Event('input', { bubbles: true }));
+        editable.dispatchEvent(new Event('change', { bubbles: true }));
+        filled.push('Why do you want to work with us?: ' + mockData.motivation.substring(0, 30) + '...');
+    }
+});
+
+// Handle text inputs and textareas (excluding contenteditable)
 inputs.forEach((input) => {
+    // Skip contenteditable elements as they're handled separately
+    if (input.getAttribute('contenteditable')) return;
+
     let labelText = '';
     let element = input;
 
@@ -204,8 +246,7 @@ inputs.forEach((input) => {
         value = mockData.salary;
     } else if (input.placeholder?.includes('mm/dd/yyyy') || labelText.includes('start date')) {
         value = mockData.startDate;
-    } else if (labelText.includes('why do you want') || labelText.includes('work with us')) {
-        value = mockData.motivation;
+    // Skip motivation field - handled separately for contenteditable elements
     }
 
     // Fill the field using execCommand

@@ -30,6 +30,7 @@ class CDPAutoFill:
             await self._send_command("Page.enable")
             await self._send_command("Runtime.enable")
             await self._send_command("DOM.enable")
+            await self._send_command("Console.enable")
 
         except Exception as e:
             print(f"❌ Failed to connect to CDP: {e}")
@@ -51,6 +52,9 @@ class CDPAutoFill:
 
                 # Handle events (optional logging)
                 elif 'method' in response:
+                    if response['method'] == 'Console.messageAdded':
+                        msg = response['params']['message']
+                        print(f"🖥️  CONSOLE: {msg.get('text', '')}")
                     # Uncomment to see all events
                     # print(f"Event: {response['method']}")
                     pass
@@ -97,6 +101,10 @@ class CDPAutoFill:
         except Exception as e:
             print(f"❌ Error reading JavaScript file: {e}")
             return []
+
+        # Wait a bit for dynamic content to load
+        print("📝 Waiting for dynamic content to load...")
+        await asyncio.sleep(2)
 
         print("📝 Executing auto-fill script from auto_fill.js...")
 
