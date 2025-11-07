@@ -250,7 +250,8 @@ Location: Tampere, Pirkanmaa, Finland
 Website: https://igor.ink
 LinkedIn: https://www.linkedin.com/in/igor-levochkin-a8733a14
 Skills: C#, JavaScript, Node.js, Unity3D, puppeteer
-
+dorumonstr@gmail.com
++358442369795
 Experience:
 - Owner, Game developer at Brutal Strike (Jan 2018 - Present)
   Created a cross-platform Game that has Over 1M downloads with over 1000 CCU.
