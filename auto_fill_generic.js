@@ -1,6 +1,6 @@
 // Generic auto-fill script that works with any form
 // Uses ModelScope API to extract data from resume and fill form fields
-
+// do not add dropdowns
 // OpenRouter API configuration
 const MODEL_SCOPE_CONFIG = {
     apiKey: "s"+"k-o"+"r-"+"v1"+"-"+"f18cfe39b6980f220a3f8dd30f701e1e9520880829b73bfccb02287411ff4cf4",
@@ -13,42 +13,53 @@ function parseFormFields() {
 
     // Helper function to find label for an element
     function findLabel(element) {
-        let labelText = '';
-        let currentElement = element;
-
         // Check for aria-labelledby
         const ariaLabelId = element.getAttribute('aria-labelledby');
         if (ariaLabelId) {
             const labelElement = document.getElementById(ariaLabelId) || document.querySelector(`[id="${ariaLabelId}"]`);
             if (labelElement) {
-                labelText = labelElement.textContent?.trim() || '';
-                if (labelText) return labelText;
+                const labelText = labelElement.textContent?.trim() || '';
+                if (labelText && labelText.length > 2) return labelText;
             }
         }
 
         // Check for aria-label
         const ariaLabel = element.getAttribute('aria-label');
-        if (ariaLabel) return ariaLabel;
+        if (ariaLabel && ariaLabel.length > 2) return ariaLabel;
+
+        // Check for associated label element
+        const id = element.id;
+        if (id) {
+            const labelElement = document.querySelector(`label[for="${id}"]`);
+            if (labelElement) {
+                const labelText = labelElement.textContent?.trim() || '';
+                if (labelText && labelText.length > 2) return labelText;
+            }
+        }
 
         // Check for placeholder
         const placeholder = element.placeholder;
         if (placeholder && placeholder.length > 3) return placeholder;
 
-        // Walk up the DOM to find labels
-        for (let i = 0; i < 10; i++) {
-            currentElement = currentElement.parentElement;
-            if (!currentElement) break;
-
-            const labels = currentElement.querySelectorAll('label, p, span, div, [data-testid*="label"]');
-            for (let label of labels) {
-                const text = label.textContent?.trim() || '';
-                if (text && text.length > 3 && !text.includes('*') && !text.includes('Please include')) {
-                    return text;
-                }
+        // Try to infer from name or id attribute
+        const name = element.name || '';
+        const elementId = element.id || '';
+        
+        // Convert name/id to readable label
+        if (name) {
+            // Extract meaningful part from names like "job_application[first_name]"
+            const match = name.match(/\[([^\]]+)\]$/);
+            if (match) {
+                return match[1].replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             }
+            return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+        
+        if (elementId && elementId.length > 2) {
+            return elementId.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         }
 
-        return labelText;
+        return '';
     }
 
     // Parse input fields - be more inclusive
@@ -64,34 +75,12 @@ function parseFormFields() {
         // Debug logging
         console.log(`Found input ${index}: type=${input.type}, name=${name}, id=${id}, placeholder=${placeholder}, label=${label}`);
 
-        // Infer label from name/id if findLabel didn't find a good one
-        let inferredLabel = label;
-        if (!inferredLabel || inferredLabel === 'Phone' || inferredLabel.length < 3) {
-            if (name.includes('first_name') || id.includes('first_name')) {
-                inferredLabel = 'First Name';
-            } else if (name.includes('last_name') || id.includes('last_name')) {
-                inferredLabel = 'Last Name';
-            } else if (name.includes('email') || id.includes('email')) {
-                inferredLabel = 'Email';
-            } else if (name.includes('phone') || id.includes('phone')) {
-                inferredLabel = 'Phone';
-            } else if (name.includes('linkedin') || name.includes('portfolio') || id.includes('linkedin')) {
-                inferredLabel = 'LinkedIn Profile';
-            } else if (name.includes('github') || id.includes('github')) {
-                inferredLabel = 'GitHub';
-            } else if (name.includes('resume') || id.includes('resume')) {
-                inferredLabel = 'Resume';
-            } else if (name.includes('cover_letter') || id.includes('cover_letter')) {
-                inferredLabel = 'Cover Letter';
-            }
-        }
-
-        // Include fields even without labels if they have meaningful names/IDs
-        if (inferredLabel || placeholder.toLowerCase().includes('name') || placeholder.toLowerCase().includes('first') || placeholder.toLowerCase().includes('last') ||
+        // Include fields even without labels if they have placeholders or names that suggest they might be form fields
+        if (label || placeholder.toLowerCase().includes('name') || placeholder.toLowerCase().includes('first') || placeholder.toLowerCase().includes('last') ||
             name.toLowerCase().includes('name') || name.toLowerCase().includes('first') || name.toLowerCase().includes('last') ||
             id.toLowerCase().includes('name') || id.toLowerCase().includes('first') || id.toLowerCase().includes('last')) {
 
-            const fieldLabel = inferredLabel || placeholder || name || id || `Input ${index}`;
+            const fieldLabel = label || placeholder || name || id || `Input ${index}`;
             fields.push({
                 id: `input_${index}`,
                 type: input.tagName.toLowerCase(),
@@ -103,37 +92,7 @@ function parseFormFields() {
         }
     });
 
-    // Parse select dropdowns
-    const selects = document.querySelectorAll('select');
-    selects.forEach((select, index) => {
-        const label = findLabel(select);
-        if (label || select.name || select.id) {
-            const options = Array.from(select.options).map(option => option.text.trim()).filter(text => text);
-            fields.push({
-                id: `select_${index}`,
-                type: 'select',
-                label: label || select.name || select.id || `Select ${index}`,
-                element: select,
-                options: options,
-                fieldType: 'dropdown'
-            });
-        }
-    });
 
-    // Parse comboboxes (modern dropdowns)
-    const comboboxes = document.querySelectorAll('[role="combobox"], [data-testid*="combobox"], [aria-expanded]');
-    comboboxes.forEach((combobox, index) => {
-        const label = findLabel(combobox);
-        if (label || combobox.getAttribute('aria-label')) {
-            fields.push({
-                id: `combobox_${index}`,
-                type: 'combobox',
-                label: label || combobox.getAttribute('aria-label') || `Combobox ${index}`,
-                element: combobox,
-                fieldType: 'dropdown'
-            });
-        }
-    });
 
     // Parse contenteditable elements (rich text fields)
     const contentEditables = document.querySelectorAll('[contenteditable="plaintext-only"], [contenteditable="true"], [role="textbox"]');
@@ -181,7 +140,6 @@ Guidelines:
 - For location fields (country, city): Use location from resume
 - For experience/salary fields: Extract or infer from resume experience
 - For motivation/cover letter fields: Write a compelling 2-3 sentence response explaining interest in the position
-- For dropdown fields: Choose the most appropriate option from available choices or provide a suitable value
 - For dates: Use MM/DD/YYYY format where appropriate
 - If information is not available in resume, use reasonable defaults based on the profile
 - Return ONLY the JSON object, no additional text or formatting
@@ -247,43 +205,6 @@ function fillField(field, value) {
             element.textContent = value;
             element.dispatchEvent(new Event('input', { bubbles: true }));
             element.dispatchEvent(new Event('change', { bubbles: true }));
-        } else if (field.type === 'select') {
-            // Handle regular select elements
-            const option = Array.from(element.options).find(opt =>
-                opt.text.toLowerCase().includes(value.toLowerCase()) ||
-                opt.value.toLowerCase().includes(value.toLowerCase())
-            );
-            if (option) {
-                element.value = option.value;
-                element.dispatchEvent(new Event('change', { bubbles: true }));
-                element.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        } else if (field.type === 'combobox') {
-            // Handle comboboxes - try to click and select
-            setTimeout(() => {
-                element.click(); // Open dropdown
-                setTimeout(() => {
-                    const options = document.querySelectorAll('[role="option"], [data-testid*="option"]');
-                    for (let option of options) {
-                        const optionText = option.textContent?.toLowerCase() || '';
-                        if (optionText.includes(value.toLowerCase())) {
-                            option.click();
-                            return;
-                        }
-                    }
-                    // Fallback: try to set value directly if it's also a select
-                    if (element.tagName === 'SELECT') {
-                        const option = Array.from(element.options).find(opt =>
-                            opt.text.toLowerCase().includes(value.toLowerCase()) ||
-                            opt.value.toLowerCase().includes(value.toLowerCase())
-                        );
-                        if (option) {
-                            element.value = option.value;
-                            element.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-                    }
-                }, 200);
-            }, 300);
         } else {
             // Handle regular input/textarea elements
             element.focus();
@@ -339,8 +260,37 @@ Experience:
     console.log('📝 Fetching form data from ModelScope API...');
 
     // Get form data from API using the parsed fields
-    const formData = await getFormDataFromResume(resumeText, formFields);
+    let formData = await getFormDataFromResume(resumeText, formFields);
 
+    // If API failed, use fallback data
+    if (Object.keys(formData).length === 0) {
+        console.log('⚠️ API failed, using fallback values');
+        formData = {};
+        formFields.forEach(field => {
+            const label = field.label.toLowerCase();
+            if (label.includes('first') && label.includes('name')) {
+                formData[field.label] = 'Igor';
+            } else if (label.includes('last') && label.includes('name')) {
+                formData[field.label] = 'Levochkin';
+            } else if (label.includes('email')) {
+                formData[field.label] = 'dorumonstr@gmail.com';
+            } else if (label.includes('phone')) {
+                formData[field.label] = '+358442369795';
+            } else if (label.includes('linkedin')) {
+                formData[field.label] = 'https://www.linkedin.com/in/igor-levochkin-a8733a14';
+            } else if (label.includes('portfolio') || label.includes('website')) {
+                formData[field.label] = 'https://resume-bzw.pages.dev/';
+            } else if (label.includes('github')) {
+                formData[field.label] = 'https://github.com/friuns2';
+            } else if (label.includes('country')) {
+                formData[field.label] = 'Finland';
+            } else if (label.includes('city') || label.includes('location')) {
+                formData[field.label] = 'Tampere';
+            } else if (label.includes('motivation') || label.includes('why') || label.includes('interest')) {
+                formData[field.label] = 'I am passionate about software development and bringing innovative solutions to challenging problems. I have extensive experience in building scalable applications and would love to contribute my skills to this role.';
+            }
+        });
+    }
 
     console.log('✅ Received form data:', formData);
 
