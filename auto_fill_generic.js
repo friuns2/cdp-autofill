@@ -64,12 +64,34 @@ function parseFormFields() {
         // Debug logging
         console.log(`Found input ${index}: type=${input.type}, name=${name}, id=${id}, placeholder=${placeholder}, label=${label}`);
 
-        // Include fields even without labels if they have placeholders or names that suggest they might be form fields
-        if (label || placeholder.toLowerCase().includes('name') || placeholder.toLowerCase().includes('first') || placeholder.toLowerCase().includes('last') ||
+        // Infer label from name/id if findLabel didn't find a good one
+        let inferredLabel = label;
+        if (!inferredLabel || inferredLabel === 'Phone' || inferredLabel.length < 3) {
+            if (name.includes('first_name') || id.includes('first_name')) {
+                inferredLabel = 'First Name';
+            } else if (name.includes('last_name') || id.includes('last_name')) {
+                inferredLabel = 'Last Name';
+            } else if (name.includes('email') || id.includes('email')) {
+                inferredLabel = 'Email';
+            } else if (name.includes('phone') || id.includes('phone')) {
+                inferredLabel = 'Phone';
+            } else if (name.includes('linkedin') || name.includes('portfolio') || id.includes('linkedin')) {
+                inferredLabel = 'LinkedIn Profile';
+            } else if (name.includes('github') || id.includes('github')) {
+                inferredLabel = 'GitHub';
+            } else if (name.includes('resume') || id.includes('resume')) {
+                inferredLabel = 'Resume';
+            } else if (name.includes('cover_letter') || id.includes('cover_letter')) {
+                inferredLabel = 'Cover Letter';
+            }
+        }
+
+        // Include fields even without labels if they have meaningful names/IDs
+        if (inferredLabel || placeholder.toLowerCase().includes('name') || placeholder.toLowerCase().includes('first') || placeholder.toLowerCase().includes('last') ||
             name.toLowerCase().includes('name') || name.toLowerCase().includes('first') || name.toLowerCase().includes('last') ||
             id.toLowerCase().includes('name') || id.toLowerCase().includes('first') || id.toLowerCase().includes('last')) {
 
-            const fieldLabel = label || placeholder || name || id || `Input ${index}`;
+            const fieldLabel = inferredLabel || placeholder || name || id || `Input ${index}`;
             fields.push({
                 id: `input_${index}`,
                 type: input.tagName.toLowerCase(),
@@ -81,7 +103,37 @@ function parseFormFields() {
         }
     });
 
+    // Parse select dropdowns
+    const selects = document.querySelectorAll('select');
+    selects.forEach((select, index) => {
+        const label = findLabel(select);
+        if (label || select.name || select.id) {
+            const options = Array.from(select.options).map(option => option.text.trim()).filter(text => text);
+            fields.push({
+                id: `select_${index}`,
+                type: 'select',
+                label: label || select.name || select.id || `Select ${index}`,
+                element: select,
+                options: options,
+                fieldType: 'dropdown'
+            });
+        }
+    });
 
+    // Parse comboboxes (modern dropdowns)
+    const comboboxes = document.querySelectorAll('[role="combobox"], [data-testid*="combobox"], [aria-expanded]');
+    comboboxes.forEach((combobox, index) => {
+        const label = findLabel(combobox);
+        if (label || combobox.getAttribute('aria-label')) {
+            fields.push({
+                id: `combobox_${index}`,
+                type: 'combobox',
+                label: label || combobox.getAttribute('aria-label') || `Combobox ${index}`,
+                element: combobox,
+                fieldType: 'dropdown'
+            });
+        }
+    });
 
     // Parse contenteditable elements (rich text fields)
     const contentEditables = document.querySelectorAll('[contenteditable="plaintext-only"], [contenteditable="true"], [role="textbox"]');
@@ -129,6 +181,7 @@ Guidelines:
 - For location fields (country, city): Use location from resume
 - For experience/salary fields: Extract or infer from resume experience
 - For motivation/cover letter fields: Write a compelling 2-3 sentence response explaining interest in the position
+- For dropdown fields: Choose the most appropriate option from available choices or provide a suitable value
 - For dates: Use MM/DD/YYYY format where appropriate
 - If information is not available in resume, use reasonable defaults based on the profile
 - Return ONLY the JSON object, no additional text or formatting
@@ -194,6 +247,43 @@ function fillField(field, value) {
             element.textContent = value;
             element.dispatchEvent(new Event('input', { bubbles: true }));
             element.dispatchEvent(new Event('change', { bubbles: true }));
+        } else if (field.type === 'select') {
+            // Handle regular select elements
+            const option = Array.from(element.options).find(opt =>
+                opt.text.toLowerCase().includes(value.toLowerCase()) ||
+                opt.value.toLowerCase().includes(value.toLowerCase())
+            );
+            if (option) {
+                element.value = option.value;
+                element.dispatchEvent(new Event('change', { bubbles: true }));
+                element.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        } else if (field.type === 'combobox') {
+            // Handle comboboxes - try to click and select
+            setTimeout(() => {
+                element.click(); // Open dropdown
+                setTimeout(() => {
+                    const options = document.querySelectorAll('[role="option"], [data-testid*="option"]');
+                    for (let option of options) {
+                        const optionText = option.textContent?.toLowerCase() || '';
+                        if (optionText.includes(value.toLowerCase())) {
+                            option.click();
+                            return;
+                        }
+                    }
+                    // Fallback: try to set value directly if it's also a select
+                    if (element.tagName === 'SELECT') {
+                        const option = Array.from(element.options).find(opt =>
+                            opt.text.toLowerCase().includes(value.toLowerCase()) ||
+                            opt.value.toLowerCase().includes(value.toLowerCase())
+                        );
+                        if (option) {
+                            element.value = option.value;
+                            element.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
+                }, 200);
+            }, 300);
         } else {
             // Handle regular input/textarea elements
             element.focus();
@@ -223,28 +313,12 @@ async function fillForm() {
         return [];
     }
 
-    // Get resume data - try multiple sources
-    let resumeText = typeof resumeData !== 'undefined' ? resumeData : null;
-
-    if (!resumeText) {
-        // Try to fetch from a URL if available
-        try {
-            const response = await fetch('/resume.txt');
-            if (response.ok) {
-                resumeText = await response.text();
-            }
-        } catch (e) {
-            console.log('Could not fetch resume.txt, using embedded data');
-        }
-    }
-
-    // If still no resume data, use a default (extracted from resume.txt)
-    if (!resumeText) {
-        resumeText = `Igor Levochkin
+    // Use hardcoded resume data
+    const resumeText = `Igor Levochkin
 Software developer with 12 years of experience. Expertise in building cross-platform applications and servers.
 Proven expertise in the Mobile Gaming industry, including a multiplayer games which handled over 10M users accounts.
 Location: Tampere, Pirkanmaa, Finland
-Website: https://igor.ink
+Website: https://resume-bzw.pages.dev/
 LinkedIn: https://www.linkedin.com/in/igor-levochkin-a8733a14
 Skills: C#, JavaScript, Node.js, Unity3D, puppeteer
 dorumonstr@gmail.com
@@ -261,7 +335,6 @@ Experience:
 - Lead Programmer at Critical Force Entertainment Ltd (Dec 2011 - Apr 2014)
   Created game using unity3d engine, wrote account server on php and mysql
   Game had about 50 million downloads`;
-    }
 
     console.log('📝 Fetching form data from ModelScope API...');
 
