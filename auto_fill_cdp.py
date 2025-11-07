@@ -121,9 +121,9 @@ class CDPAutoFill:
             resume_json = json.dumps(resume_data)
             script = f"window.RESUME_DATA = {resume_json};\n" + script
 
-        # Wait a bit for dynamic content to load
+        # Wait longer for dynamic content to load
         print("📝 Waiting for dynamic content to load...")
-        await asyncio.sleep(2)
+        await asyncio.sleep(5)
 
         print("📝 Executing auto-fill script from auto_fill.js...")
 

@@ -54,18 +54,30 @@ function parseFormFields() {
         return labelText;
     }
 
-    // Parse input fields
-    const inputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], input[type="url"], textarea');
+    // Parse input fields - be more inclusive
+    const inputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], input[type="url"], input:not([type]), textarea');
     inputs.forEach((input, index) => {
         if (input.getAttribute('contenteditable')) return; // Skip contenteditable handled separately
 
         const label = findLabel(input);
-        if (label) {
+        const placeholder = input.placeholder || '';
+        const name = input.name || '';
+        const id = input.id || '';
+
+        // Debug logging
+        console.log(`Found input ${index}: type=${input.type}, name=${name}, id=${id}, placeholder=${placeholder}, label=${label}`);
+
+        // Include fields even without labels if they have placeholders or names that suggest they might be form fields
+        if (label || placeholder.toLowerCase().includes('name') || placeholder.toLowerCase().includes('first') || placeholder.toLowerCase().includes('last') ||
+            name.toLowerCase().includes('name') || name.toLowerCase().includes('first') || name.toLowerCase().includes('last') ||
+            id.toLowerCase().includes('name') || id.toLowerCase().includes('first') || id.toLowerCase().includes('last')) {
+
+            const fieldLabel = label || placeholder || name || id || `Input ${index}`;
             fields.push({
                 id: `input_${index}`,
                 type: input.tagName.toLowerCase(),
                 inputType: input.type,
-                label: label,
+                label: fieldLabel,
                 element: input,
                 fieldType: 'text'
             });
