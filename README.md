@@ -101,8 +101,7 @@ The AI analyzes your resume and fills **any form field** with contextually appro
 ## Files Included
 
 - `auto_fill_cdp.py` - Main Python script for CDP communication
-- `auto_fill_generic.js` - **NEW** AI-powered generic form filler (works with any form)
-- `auto_fill.js` - Legacy JavaScript file (WasteHero-specific)
+- `auto_fill_generic.js` - AI-powered generic form filler (works with any form)
 - `get_cdp_url.py` - Helper script to find CDP WebSocket URLs
 - `test_auto_fill.py` - Test script for the auto-fill functionality
 - `resume.txt` - Resume data used by the AI for form filling
@@ -115,8 +114,6 @@ The AI analyzes your resume and fills **any form field** with contextually appro
 - **AI Prompts**: Modify the LLM prompts in `auto_fill_generic.js` for different behavior
 - **Field Detection**: Customize field parsing logic in the `parseFormFields()` function
 - **Fallback Data**: Update the fallback values in the script for when AI is unavailable
-
-The script automatically uses `auto_fill_generic.js` if available, falling back to `auto_fill.js` for backward compatibility.
 
 ## Troubleshooting
 

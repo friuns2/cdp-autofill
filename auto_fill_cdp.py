@@ -93,16 +93,12 @@ class CDPAutoFill:
     async def execute_auto_fill_script(self):
         """Execute the auto-fill JavaScript from external file"""
         try:
-            # Read the JavaScript file - try generic version first, fallback to original
-            script_file = "auto_fill_generic.js"
-            if not os.path.exists(script_file):
-                script_file = "auto_fill.js"
-
-            with open(script_file, "r") as f:
+            # Read the JavaScript file
+            with open("auto_fill_generic.js", "r") as f:
                 script = f.read()
-            print(f"📜 Loaded script: {script_file}")
+            print("📜 Loaded generic auto-fill script")
         except FileNotFoundError:
-            print("❌ Neither auto_fill_generic.js nor auto_fill.js files found")
+            print("❌ auto_fill_generic.js file not found")
             return []
         except Exception as e:
             print(f"❌ Error reading JavaScript file: {e}")
