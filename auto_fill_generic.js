@@ -221,9 +221,45 @@ function fillField(field, value) {
     }
 }
 
+// Function to detect and handle iframe forms
+function checkForIframeForms() {
+    // Look for iframes that might contain job application forms
+    const iframes = document.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+        const src = iframe.src || iframe.getAttribute('data-src') || '';
+        // Check for common job application iframe patterns
+        if (src && (
+            src.includes('greenhouse.io/embed/job_app') ||
+            src.includes('boards.greenhouse.io/embed') ||
+            src.includes('job-boards.greenhouse.io') ||
+            src.includes('ats.rippling.com') ||
+            src.includes('lever.co') ||
+            src.includes('workday.com') ||
+            src.includes('apply.indeed.com')
+        )) {
+            console.log('🎯 Detected job application form in iframe:', src);
+            // Redirect to the iframe URL
+            window.location.href = src;
+            return true; // Indicate that we redirected
+        }
+    }
+    return false; // No iframe form detected
+}
+
 // Main async function to fill the form
 async function fillForm() {
-    console.log('🔍 Parsing form fields...');
+    console.log('🔍 Checking for iframe forms...');
+
+    // First, check if the form is in an iframe and redirect if needed
+    const redirected = checkForIframeForms();
+    if (redirected) {
+        console.log('🔄 Redirected to iframe URL, waiting for page to load...');
+        // Wait a bit for the redirect to complete
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        return ['Redirected to iframe form'];
+    }
+
+    console.log('🔍 Parsing form fields on current page...');
 
     // Parse all form fields on the page
     const formFields = parseFormFields();
@@ -261,36 +297,6 @@ Experience:
 
     // Get form data from API using the parsed fields
     let formData = await getFormDataFromResume(resumeText, formFields);
-
-    // If API failed, use fallback data
-    if (Object.keys(formData).length === 0) {
-        console.log('⚠️ API failed, using fallback values');
-        formData = {};
-        formFields.forEach(field => {
-            const label = field.label.toLowerCase();
-            if (label.includes('first') && label.includes('name')) {
-                formData[field.label] = 'Igor';
-            } else if (label.includes('last') && label.includes('name')) {
-                formData[field.label] = 'Levochkin';
-            } else if (label.includes('email')) {
-                formData[field.label] = 'dorumonstr@gmail.com';
-            } else if (label.includes('phone')) {
-                formData[field.label] = '+358442369795';
-            } else if (label.includes('linkedin')) {
-                formData[field.label] = 'https://www.linkedin.com/in/igor-levochkin-a8733a14';
-            } else if (label.includes('portfolio') || label.includes('website')) {
-                formData[field.label] = 'https://resume-bzw.pages.dev/';
-            } else if (label.includes('github')) {
-                formData[field.label] = 'https://github.com/friuns2';
-            } else if (label.includes('country')) {
-                formData[field.label] = 'Finland';
-            } else if (label.includes('city') || label.includes('location')) {
-                formData[field.label] = 'Tampere';
-            } else if (label.includes('motivation') || label.includes('why') || label.includes('interest')) {
-                formData[field.label] = 'I am passionate about software development and bringing innovative solutions to challenging problems. I have extensive experience in building scalable applications and would love to contribute my skills to this role.';
-            }
-        });
-    }
 
     console.log('✅ Received form data:', formData);
 
