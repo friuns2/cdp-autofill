@@ -6,9 +6,6 @@ const MODEL_SCOPE_CONFIG = {
     apiKey: "s"+"k-o"+"r-"+"v1"+"-"+"f18cfe39b6980f220a3f8dd30f701e1e9520880829b73bfccb02287411ff4cf4",
     baseUrl: "https://"+"o"+"p"+"e"+"n"+"r"+"o"+"u"+"t"+"e"+"r"+"."+"a"+"i"+"/"+"a"+"p"+"i"+"/"+"v"+"1",
     model: "x-"+"a"+"i"+"/"+"g"+"r"+"o"+"k"+"-"+"4"+"-"+"f"+"a"+"s"+"t"
-    apiKey: "s"+"k-o"+"r-"+"v1"+"-"+"f18cfe39b6980f220a3f8dd30f701e1e9520880829b73bfccb02287411ff4cf4",
-    baseUrl: "https://"+"o"+"p"+"e"+"n"+"r"+"o"+"u"+"t"+"e"+"r"+"."+"a"+"i"+"/"+"a"+"p"+"i"+"/"+"v"+"1",
-    model: "x-"+"a"+"i"+"/"+"g"+"r"+"o"+"k"+"-"+"4"+"-"+"f"+"a"+"s"+"t"
 };
 // Function to parse all form fields on the page
 function parseFormFields() {
