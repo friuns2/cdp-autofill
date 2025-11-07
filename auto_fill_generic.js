@@ -224,7 +224,7 @@ async function fillForm() {
     }
 
     // Get resume data - try multiple sources
-    let resumeText = resumeData;
+    let resumeText = typeof resumeData !== 'undefined' ? resumeData : null;
 
     if (!resumeText) {
         // Try to fetch from a URL if available
