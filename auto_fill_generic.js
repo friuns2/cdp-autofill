@@ -245,8 +245,8 @@ async function fillForm() {
     // First, check if the form is in an iframe and redirect if needed
     const redirected = checkForIframeForms();
     if (redirected) {
-        alert('🔄 Redirected to iframe URL, waiting for page to load...');
-        return;
+        console.error('🔄 Redirected to iframe URL, waiting for page to load...');
+        throw new Error('Redirected to iframe URL, waiting for page to load...');
     }
 
     console.log('🔍 Parsing form fields on current page...');
