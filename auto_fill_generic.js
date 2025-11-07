@@ -84,37 +84,7 @@ function parseFormFields() {
         }
     });
 
-    // Parse select dropdowns
-    const selects = document.querySelectorAll('select');
-    selects.forEach((select, index) => {
-        const label = findLabel(select);
-        if (label) {
-            const options = Array.from(select.options).map(option => option.text.trim()).filter(text => text);
-            fields.push({
-                id: `select_${index}`,
-                type: 'select',
-                label: label,
-                element: select,
-                options: options,
-                fieldType: 'dropdown'
-            });
-        }
-    });
 
-    // Parse comboboxes (modern dropdowns)
-    const comboboxes = document.querySelectorAll('[role="combobox"], [data-testid*="combobox"], [aria-expanded]');
-    comboboxes.forEach((combobox, index) => {
-        const label = findLabel(combobox);
-        if (label) {
-            fields.push({
-                id: `combobox_${index}`,
-                type: 'combobox',
-                label: label,
-                element: combobox,
-                fieldType: 'dropdown'
-            });
-        }
-    });
 
     // Parse contenteditable elements (rich text fields)
     const contentEditables = document.querySelectorAll('[contenteditable="plaintext-only"], [contenteditable="true"], [role="textbox"]');
@@ -138,9 +108,7 @@ function parseFormFields() {
 async function getFormDataFromResume(resumeText, formFields) {
     const fieldsDescription = formFields.map(field => {
         let desc = `- "${field.label}"`;
-        if (field.fieldType === 'dropdown' && field.options) {
-            desc += ` (dropdown with options: ${field.options.slice(0, 5).join(', ')}${field.options.length > 5 ? '...' : ''})`;
-        } else if (field.inputType) {
+        if (field.inputType) {
             desc += ` (${field.inputType} input)`;
         } else if (field.fieldType === 'textarea') {
             desc += ` (text area)`;
@@ -164,7 +132,6 @@ Guidelines:
 - For location fields (country, city): Use location from resume
 - For experience/salary fields: Extract or infer from resume experience
 - For motivation/cover letter fields: Write a compelling 2-3 sentence response explaining interest in the position
-- For dropdown fields: Choose the most appropriate option from available choices or provide a suitable value
 - For dates: Use MM/DD/YYYY format where appropriate
 - If information is not available in resume, use reasonable defaults based on the profile
 - Return ONLY the JSON object, no additional text or formatting
@@ -230,43 +197,6 @@ function fillField(field, value) {
             element.textContent = value;
             element.dispatchEvent(new Event('input', { bubbles: true }));
             element.dispatchEvent(new Event('change', { bubbles: true }));
-        } else if (field.type === 'select') {
-            // Handle regular select elements
-            const option = Array.from(element.options).find(opt =>
-                opt.text.toLowerCase().includes(value.toLowerCase()) ||
-                opt.value.toLowerCase().includes(value.toLowerCase())
-            );
-            if (option) {
-                element.value = option.value;
-                element.dispatchEvent(new Event('change', { bubbles: true }));
-                element.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        } else if (field.type === 'combobox') {
-            // Handle comboboxes - try to click and select
-            setTimeout(() => {
-                element.click(); // Open dropdown
-                setTimeout(() => {
-                    const options = document.querySelectorAll('[role="option"], [data-testid*="option"]');
-                    for (let option of options) {
-                        const optionText = option.textContent?.toLowerCase() || '';
-                        if (optionText.includes(value.toLowerCase())) {
-                            option.click();
-                            return;
-                        }
-                    }
-                    // Fallback: try to set value directly if it's also a select
-                    if (element.tagName === 'SELECT') {
-                        const option = Array.from(element.options).find(opt =>
-                            opt.text.toLowerCase().includes(value.toLowerCase()) ||
-                            opt.value.toLowerCase().includes(value.toLowerCase())
-                        );
-                        if (option) {
-                            element.value = option.value;
-                            element.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-                    }
-                }, 200);
-            }, 300);
         } else {
             // Handle regular input/textarea elements
             element.focus();
@@ -340,44 +270,14 @@ Experience:
     // Get form data from API using the parsed fields
     const formData = await getFormDataFromResume(resumeText, formFields);
 
-    if (Object.keys(formData).length === 0) {
-        console.error('❌ Failed to get form data from API, using fallback values');
-        // Fallback values for common fields
-        const fallbackData = {};
-        formFields.forEach(field => {
-            const label = field.label.toLowerCase();
-            if (label.includes('name')) {
-                fallbackData[field.label] = 'Igor Levochkin';
-            } else if (label.includes('email')) {
-                fallbackData[field.label] = 'igor@igor.ink';
-            } else if (label.includes('phone')) {
-                fallbackData[field.label] = '+358 50 123 4567';
-            } else if (label.includes('linkedin')) {
-                fallbackData[field.label] = 'https://www.linkedin.com/in/igor-levochkin-a8733a14';
-            } else if (label.includes('country')) {
-                fallbackData[field.label] = 'Finland';
-            } else if (label.includes('city')) {
-                fallbackData[field.label] = 'Tampere';
-            } else if (label.includes('salary') || label.includes('compensation')) {
-                fallbackData[field.label] = '$8,000 USD';
-            } else if (label.includes('date') || label.includes('start')) {
-                fallbackData[field.label] = '02/01/2025';
-            } else if (label.includes('motivation') || label.includes('why') || label.includes('interest')) {
-                fallbackData[field.label] = 'I am passionate about software development and bringing innovative solutions to challenging problems. I have extensive experience in building scalable applications and would love to contribute my skills to this role.';
-            }
-        });
-        mockData = fallbackData;
-    } else {
-        mockData = formData;
-    }
 
-    console.log('✅ Received form data:', mockData);
+    console.log('✅ Received form data:', formData);
 
     const filled = [];
 
     // Fill each field with the corresponding data
     for (const field of formFields) {
-        const value = mockData[field.label];
+        const value = formData[field.label];
         if (value) {
             const success = fillField(field, value);
             if (success) {
