@@ -228,7 +228,15 @@ function checkForIframeForms() {
     for (const iframe of iframes) {
         const src = iframe.src || iframe.getAttribute('data-src') || '';
         // Check for common job application iframe patterns
-        if (src) {
+        if (src && (
+            src.includes('greenhouse.io/embed/job_app') ||
+            src.includes('boards.greenhouse.io/embed') ||
+            src.includes('job-boards.greenhouse.io') ||
+            src.includes('ats.rippling.com') ||
+            src.includes('lever.co') ||
+            src.includes('workday.com') ||
+            src.includes('apply.indeed.com')
+        )) {
             console.log('🎯 Detected job application form in iframe:', src);
             // Redirect to the iframe URL
             window.location.href = src;
@@ -245,8 +253,10 @@ async function fillForm() {
     // First, check if the form is in an iframe and redirect if needed
     const redirected = checkForIframeForms();
     if (redirected) {
-        console.error('🔄 Redirected to iframe URL, waiting for page to load...');
-        throw new Error('Redirected to iframe URL, waiting for page to load...');
+        console.log('🔄 Redirected to iframe URL, waiting for page to load...');
+        // Wait a bit for the redirect to complete
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        return ['Redirected to iframe form'];
     }
 
     console.log('🔍 Parsing form fields on current page...');
