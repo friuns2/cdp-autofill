@@ -161,7 +161,7 @@ async def main():
     # Or by starting Chrome with: chrome --remote-debugging-port=9222
 
     CDP_URL = "ws://localhost:9222/devtools/browser"  # Default for local Chrome
-    FORM_URL = "https://airtable.com/appnFx0g1bd3i8Shb/pagTDfAhnTL0JktPf/form"  # The form URL
+    FORM_URL = "https://job-boards.greenhouse.io/remotecom/jobs/7515760003"  # The form URL
 
     # Allow user to specify custom CDP URL
     if len(sys.argv) > 1:
