@@ -1,11 +1,25 @@
-// Generic auto-fill script that works with any form
-// Uses ModelScope API to extract data from resume and fill form fields
-// do not add dropdowns
-// OpenRouter API configuration
+// ==UserScript==
+// @name         Auto-Fill Job Applications
+// @namespace    http://tampermonkey.net/
+// @version      1.0
+// @description  Automatically fills job application forms using resume data via OpenRouter API
+// @author       Igor Levochkin
+// @match        *://*/*
+// @grant        GM_xmlhttpRequest
+// @run-at       document-end
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // Generic auto-fill script that works with any form
+    // Uses OpenRouter API to extract data from resume and fill form fields
+    // do not add dropdowns
+    // OpenRouter API configuration
 const MODEL_SCOPE_CONFIG = {
     apiKey: "s"+"k-o"+"r-"+"v1"+"-"+"f18cfe39b6980f220a3f8dd30f701e1e9520880829b73bfccb02287411ff4cf4",
     baseUrl: "https://"+"o"+"p"+"e"+"n"+"r"+"o"+"u"+"t"+"e"+"r"+"."+"a"+"i"+"/"+"a"+"p"+"i"+"/"+"v"+"1",
-    model: "x-"+"a"+"i"+"/"+"g"+"r"+"o"+"k"+"-"+"4"+"-"+"f"+"a"+"s"+"t"
+    model: "x-ai"+"/"+"g"+"r"+"o"+"k"+"-"+"4"+"-"+"f"+"a"+"s"+"t"
 };
 // Function to parse all form fields on the page
 function parseFormFields() {
@@ -152,30 +166,65 @@ Example format:
 }`;
 
     try {
-        const response = await fetch(`${MODEL_SCOPE_CONFIG.baseUrl}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${MODEL_SCOPE_CONFIG.apiKey}`
-            },
-            body: JSON.stringify({
-                model: MODEL_SCOPE_CONFIG.model,
-                messages: [
-                    {
-                        role: "user",
-                        content: prompt
-                    }
-                ],
-                temperature: 0.7,
-                max_tokens: 3000
-            })
+        const requestData = JSON.stringify({
+            model: MODEL_SCOPE_CONFIG.model,
+            messages: [
+                {
+                    role: "user",
+                    content: prompt
+                }
+            ],
+            temperature: 0.7,
+            max_tokens: 3000
         });
 
-        if (!response.ok) {
-            throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
+        const data = await new Promise((resolve, reject) => {
+            if (typeof GM_xmlhttpRequest !== 'undefined') {
+                // Use GM_xmlhttpRequest if available
+                GM_xmlhttpRequest({
+                    method: 'POST',
+                    url: `${MODEL_SCOPE_CONFIG.baseUrl}/chat/completions`,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${MODEL_SCOPE_CONFIG.apiKey}`
+                    },
+                    data: requestData,
+                    onload: function(response) {
+                        if (response.status >= 200 && response.status < 300) {
+                            try {
+                                const data = JSON.parse(response.responseText);
+                                resolve(data);
+                            } catch (error) {
+                                reject(new Error('Failed to parse JSON response'));
+                            }
+                        } else {
+                            reject(new Error(`API request failed: ${response.status} ${response.statusText}`));
+                        }
+                    },
+                    onerror: function(error) {
+                        reject(new Error(`Network error: ${error}`));
+                    }
+                });
+            } else {
+                // Fall back to fetch
+                fetch(`${MODEL_SCOPE_CONFIG.baseUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${MODEL_SCOPE_CONFIG.apiKey}`
+                    },
+                    body: requestData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => resolve(data))
+                .catch(error => reject(error));
+            }
+        });
         const content = data.choices[0].message.content.trim();
 
         // Extract JSON from response (handle markdown code blocks if present)
@@ -223,26 +272,7 @@ function fillField(field, value) {
 
 // Function to detect and handle iframe forms
 function checkForIframeForms() {
-    // Look for iframes that might contain job application forms
-    const iframes = document.querySelectorAll('iframe');
-    for (const iframe of iframes) {
-        const src = iframe.src || iframe.getAttribute('data-src') || '';
-        // Check for common job application iframe patterns
-        if (src && (
-            src.includes('greenhouse.io/embed/job_app') ||
-            src.includes('boards.greenhouse.io/embed') ||
-            src.includes('job-boards.greenhouse.io') ||
-            src.includes('ats.rippling.com') ||
-            src.includes('lever.co') ||
-            src.includes('workday.com') ||
-            src.includes('apply.indeed.com')
-        )) {
-            console.log('🎯 Detected job application form in iframe:', src);
-            // Redirect to the iframe URL
-            window.location.href = src;
-            return true; // Indicate that we redirected
-        }
-    }
+  
     return false; // No iframe form detected
 }
 
@@ -331,3 +361,5 @@ fillForm().then(filled => {
     console.error('❌ Error filling form:', error);
     throw error;
 });
+
+})();
