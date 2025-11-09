@@ -14,7 +14,7 @@ A userscript that automatically fills job application forms using AI (OpenRouter
 
 1. Install the [Tampermonkey](https://www.tampermonkey.net/) browser extension
 2. Click on the extension icon and select "Add new script"
-3. Copy the contents of auto_fill_generic.user.js
+3. Copy the contents of [`auto_fill_generic.user.js`](auto_fill_generic.user.js)
 4. Paste it into the script editor and save
 5. The script will now run automatically when you right-click on job application forms
 
