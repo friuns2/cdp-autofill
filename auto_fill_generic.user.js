@@ -6,7 +6,7 @@
 // @author       Igor Levochkin
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
-// @run-at       document-end
+// @run-at       context-menu
 // ==/UserScript==
 
 (function() {
